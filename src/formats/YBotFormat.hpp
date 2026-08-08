@@ -90,7 +90,7 @@ public:
             input.player2 = false;
             input.down = down;
             input.button = button;
-            DeepParser::normalizeButton(input.button);
+            normalizeButton(input.button);
             replay.inputs.push_back(input);
         }
 
@@ -106,7 +106,7 @@ public:
             input.player2 = true;
             input.down = down;
             input.button = button;
-            DeepParser::normalizeButton(input.button);
+            normalizeButton(input.button);
             replay.inputs.push_back(input);
         }
 
