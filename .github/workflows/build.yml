@@ -19,31 +19,15 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.geode
-          key: geode-sdk-android64-v15-${{ hashFiles('**/CMakeLists.txt') }}
+          key: geode-sdk-android64-v16-${{ hashFiles('**/CMakeLists.txt') }}
           restore-keys: |
-            geode-sdk-android64-v15-
+            geode-sdk-android64-v16-
 
       - name: Setup NDK r28b
         uses: nttld/setup-ndk@v1
         with:
           ndk-version: r28b
           add-to-path: true
-
-      - name: Pre-install Geode SDK & Fix Codegen
-        run: |
-          # Install SDK manually to control permissions
-          mkdir -p ~/.geode/sdk
-          curl -L "https://github.com/geode-sdk/geode/releases/download/v5.8.2/geode-v5.8.2-android64.zip" -o /tmp/geode-sdk.zip
-          unzip -o /tmp/geode-sdk.zip -d ~/.geode/sdk/
-          
-          # Download and fix Codegen permissions BEFORE cmake runs
-          mkdir -p ~/.geode/sdk/bin
-          curl -L "https://github.com/geode-sdk/geode/releases/download/v5.8.2/codegen-linux" -o ~/.geode/sdk/bin/Codegen 2>/dev/null || \
-          curl -L "https://github.com/geode-sdk/cli/releases/download/v3.8.0/codegen-linux" -o ~/.geode/sdk/bin/Codegen 2>/dev/null || true
-          chmod +x ~/.geode/sdk/bin/Codegen 2>/dev/null || true
-          
-          # Also fix any existing Codegen
-          find ~/.geode -name "Codegen" -type f -exec chmod +x {} \; 2>/dev/null || true
 
       - name: Build the mod
         uses: geode-sdk/build-geode-mod@main
