@@ -1,13 +1,10 @@
 #pragma once
 #include <vector>
 #include <string>
-#include <nlohmann/json.hpp>
+#include <matjson.hpp>
 #include "../utils/BinaryReader.hpp"
 
 namespace deepbot {
-
-// MegaHack Replay Format (.mhr)
-// JSON-based format
 
 class MHRFormat {
 public:
@@ -26,14 +23,14 @@ public:
     };
 
     static std::vector<uint8_t> write(const Replay& replay) {
-        nlohmann::json j;
+        matjson::Value j;
         j["fps"] = replay.fps;
         j["levelName"] = replay.levelName;
         j["levelId"] = replay.levelId;
 
-        nlohmann::json inputs = nlohmann::json::array();
+        std::vector<matjson::Value> inputs;
         for (const auto& input : replay.inputs) {
-            nlohmann::json inp;
+            matjson::Value inp;
             inp["frame"] = input.frame;
             inp["down"] = input.down;
             inp["player2"] = input.player2;
@@ -42,26 +39,26 @@ public:
         }
         j["inputs"] = inputs;
 
-        std::string jsonStr = j.dump(); // Compact, no indent
+        std::string jsonStr = j.dump();
         return std::vector<uint8_t>(jsonStr.begin(), jsonStr.end());
     }
 
     static Replay read(const std::vector<uint8_t>& data) {
         std::string jsonStr(data.begin(), data.end());
-        auto j = nlohmann::json::parse(jsonStr);
+        auto val = matjson::Value::fromString(jsonStr).unwrapOr(matjson::Value());
         Replay replay;
 
-        replay.fps = j.value("fps", 240.0);
-        replay.levelName = j.value("levelName", "");
-        replay.levelId = j.value("levelId", 0);
+        replay.fps = val["fps"].asDouble().unwrapOr(240.0);
+        replay.levelName = val["levelName"].asString().unwrapOr("");
+        replay.levelId = val["levelId"].asInt().unwrapOr(0);
 
-        if (j.contains("inputs")) {
-            for (const auto& inp : j["inputs"]) {
+        if (val.contains("inputs")) {
+            for (const auto& inp : val["inputs"].asArray().unwrapOr(std::vector<matjson::Value>())) {
                 Input input;
-                input.frame = inp.value("frame", 0);
-                input.down = inp.value("down", false);
-                input.player2 = inp.value("player2", false);
-                input.button = inp.value("button", 1);
+                input.frame = inp["frame"].asInt().unwrapOr(0);
+                input.down = inp["down"].asBool().unwrapOr(false);
+                input.player2 = inp["player2"].asBool().unwrapOr(false);
+                input.button = inp["button"].asInt().unwrapOr(1);
                 DeepParser::normalizeButton(input.button);
                 replay.inputs.push_back(input);
             }
