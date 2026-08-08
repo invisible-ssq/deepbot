@@ -1,14 +1,13 @@
 #pragma once
-#include <Geode/ui/Popup.hpp>
-#include <Geode/cocos/include/cocos2d.h>
+#include <Geode/Geode.hpp>
 
 using namespace geode::prelude;
 
 namespace deepbot {
 
-class DeepBotUI : public Popup<> {
+class DeepBotUI : public FLAlertLayer {
 protected:
-    bool setup() override;
+    bool init() override;
 
 public:
     static DeepBotUI* create();
@@ -22,8 +21,8 @@ public:
     void updateStatus(const std::string& status);
 
 private:
-    cocos2d::CCLabelBMFont* m_statusLabel = nullptr;
-    cocos2d::CCMenu* m_buttonMenu = nullptr;
+    CCLabelBMFont* m_statusLabel = nullptr;
+    CCMenu* m_buttonMenu = nullptr;
 };
 
 } // namespace deepbot
