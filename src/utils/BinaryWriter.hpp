@@ -1,8 +1,9 @@
 #pragma once
+#include <cstdint>
 #include <vector>
 #include <string>
-#include <cstdint>
 #include <cstring>
+#include <algorithm>
 
 namespace deepbot {
 
@@ -23,6 +24,7 @@ public:
 
     template<typename T>
     void write(T value) {
+        static_assert(std::is_trivially_copyable_v<T>, "T must be trivially copyable");
         uint8_t bytes[sizeof(T)];
         std::memcpy(bytes, &value, sizeof(T));
         m_data.insert(m_data.end(), bytes, bytes + sizeof(T));
@@ -53,7 +55,10 @@ public:
     }
 
     void writeString(const std::string& str) {
-        uint16_t len = std::min<size_t>(str.size(), UINT16_MAX);
+        uint16_t len = static_cast<uint16_t>(std::min(str.size(), size_t(UINT16_MAX)));
+        if (len < str.size()) {
+            // Silently truncated - consider adding warning
+        }
         writeU16(len);
         writeBytes(reinterpret_cast<const uint8_t*>(str.data()), len);
     }
@@ -61,6 +66,12 @@ public:
     void writeStringVar(const std::string& str) {
         writeVarU64(str.size());
         writeBytes(reinterpret_cast<const uint8_t*>(str.data()), str.size());
+    }
+    
+    // Overwrite data at specific offset (for fixing header sizes after the fact)
+    void overwrite(size_t offset, const void* data, size_t len) {
+        if (offset + len > m_data.size()) throw std::runtime_error("Overwrite out of bounds");
+        std::memcpy(m_data.data() + offset, data, len);
     }
 };
 
