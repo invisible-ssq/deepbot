@@ -1,7 +1,7 @@
 #pragma once
 #include <vector>
-#include <cstdint>
 #include <string>
+#include <cstring>
 #include "../utils/BinaryReader.hpp"
 #include "../utils/BinaryWriter.hpp"
 #include "../utils/TPSFix.hpp"
@@ -35,22 +35,26 @@ public:
     };
 
     static std::vector<uint8_t> write(const Replay& replay) {
+        // Build header separately to avoid reallocation issues
+        BinaryWriter headerWriter;
+        headerWriter.writeString(replay.author);
+        headerWriter.writeString(replay.description);
+        headerWriter.writeI32(replay.levelId);
+        headerWriter.writeString(replay.levelName);
+        headerWriter.writeF64(replay.tps);
+        headerWriter.writeF64(replay.duration);
+        headerWriter.writeU32(replay.gameVersion);
+        headerWriter.writeU32(replay.seed);
+        
+        uint32_t headerSize = static_cast<uint32_t>(headerWriter.size());
+        
         BinaryWriter writer;
         writer.writeBytes(reinterpret_cast<const uint8_t*>(MAGIC), 4);
         writer.writeU16(VERSION);
-        writer.writeU32(0);
-        uint32_t headerSizePos = writer.size();
-        writer.writeU32(0);
-        writer.writeString(replay.author);
-        writer.writeString(replay.description);
-        writer.writeI32(replay.levelId);
-        writer.writeString(replay.levelName);
-        writer.writeF64(replay.tps);
-        writer.writeF64(replay.duration);
-        writer.writeU32(replay.gameVersion);
-        writer.writeU32(replay.seed);
-        uint32_t headerSize = writer.size();
-        std::memcpy(writer.data().data() + headerSizePos, &headerSize, 4);
+        writer.writeU32(0); // flags
+        writer.writeU32(headerSize);
+        writer.writeBytes(headerWriter.data().data(), headerWriter.size());
+        
         writer.writeVarU64(replay.inputs.size());
         for (const auto& input : replay.inputs) {
             writer.writeF64(input.absoluteTime);
@@ -85,8 +89,8 @@ public:
         replay.duration = reader.readF64();
         replay.gameVersion = reader.readU32();
         replay.seed = reader.readU32();
-        if (reader.position() < headerSize) {
-            reader.skip(headerSize - reader.position());
+        if (reader.position() < headerSize + 14) { // 14 = 4+2+4+4 (magic+version+flags+headerSize)
+            reader.skip((headerSize + 14) - reader.position());
         }
         uint64_t inputCount = reader.readVarU64();
         replay.inputs.reserve(inputCount);
@@ -99,6 +103,14 @@ public:
             input.rotation = reader.readF32();
             input.yAccel = reader.readF32();
             replay.inputs.push_back(input);
+        }
+        
+        // Verify footer
+        if (reader.remaining() >= 4) {
+            auto footer = reader.readBytes(4);
+            if (std::memcmp(footer.data(), FOOTER, 4) != 0) {
+                throw std::runtime_error("Invalid .deep footer (file corrupted)");
+            }
         }
         return replay;
     }
