@@ -18,47 +18,33 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install Geode CLI
-        run: |
-          # Download specific version
-          curl -L "https://github.com/geode-sdk/cli/releases/download/v3.8.0/geode-cli-v3.8.0-linux.zip" -o geode.zip ||           curl -L "https://github.com/geode-sdk/cli/releases/download/v3.7.0/geode-cli-v3.7.0-linux.zip" -o geode.zip ||           curl -L "https://github.com/geode-sdk/cli/releases/download/v3.6.0/geode-cli-v3.6.0-linux.zip" -o geode.zip
-          mkdir -p $HOME/geode-cli
-          unzip geode.zip -d $HOME/geode-cli || true
-          chmod +x $HOME/geode-cli/geode || chmod +x $HOME/geode-cli/bin/geode || true
-          echo "$HOME/geode-cli" >> $GITHUB_PATH
-          echo "$HOME/geode-cli/bin" >> $GITHUB_PATH
+      - name: Build Geode Mod
+        id: build
+        continue-on-error: true
+        uses: geode-sdk/build-geode-mod@main
+        with:
+          sdk: nightly
+          build-config: Release
+          target: Android64
+          combine: false
+          use-lto: false
+          export-symbols: false
 
-      - name: Install Geode SDK
+      - name: Patch fmt and retry
+        if: steps.build.outcome == 'failure'
         run: |
-          geode sdk install
-          geode sdk install-binaries -p android64
-
-      - name: Configure CMake (first pass to download deps)
-        run: |
-          cmake -B build             -DCMAKE_BUILD_TYPE=Release             -DGEODE_SDK=$HOME/.geode/sdk             -T Android64             || true
-
-      - name: Patch fmt
-        run: |
-          find build -path "*/fmt/*/include/fmt/format.h" -exec sed -i 's/constexpr auto operator"" _a/constexpr auto operator""_a/g' {} +
-          find build -path "*/fmt/*/include/fmt/base.h" -exec sed -i 's/#define FMT_CONSTEVAL consteval/#define FMT_CONSTEVAL constexpr/g' {} +
-          find build -path "*/fmt/*/include/fmt/core.h" -exec sed -i 's/#define FMT_CONSTEVAL consteval/#define FMT_CONSTEVAL constexpr/g' {} +
-          find $HOME/.geode/sdk -path "*/fmt/*/include/fmt/format.h" -exec sed -i 's/constexpr auto operator"" _a/constexpr auto operator""_a/g' {} +
-          find $HOME/.geode/sdk -path "*/fmt/*/include/fmt/base.h" -exec sed -i 's/#define FMT_CONSTEVAL consteval/#define FMT_CONSTEVAL constexpr/g' {} +
-          find $HOME/.geode/sdk -path "*/fmt/*/include/fmt/core.h" -exec sed -i 's/#define FMT_CONSTEVAL consteval/#define FMT_CONSTEVAL constexpr/g' {} +
-
-      - name: Build
-        run: |
+          # Find fmt headers
+          FMT_FILES=$(find . $HOME/.geode/sdk -path "*/fmt/*/include/fmt/*.h" 2>/dev/null)
+          for f in $FMT_FILES; do
+            sed -i 's/constexpr auto operator"" _a/constexpr auto operator""_a/g' "$f" 2>/dev/null || true
+            sed -i 's/#define FMT_CONSTEVAL consteval/#define FMT_CONSTEVAL constexpr/g' "$f" 2>/dev/null || true
+          done
+          # Retry build
           cmake --build build --config Release --parallel 4
 
-      - name: Package
-        run: |
-          cd build
-          cpack -G ZIP || true
-
       - name: Upload Artifact
+        if: success() || steps.build.outcome == 'failure'
         uses: actions/upload-artifact@v4
         with:
           name: deepbot-android64
-          path: |
-            build/*.geode
-            build/**/*.geode
+          path: build/*.geode
