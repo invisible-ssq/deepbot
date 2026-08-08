@@ -1,3 +1,4 @@
+
 name: Build deepbot
 
 on:
@@ -19,9 +20,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.geode
-          key: geode-sdk-android64-v2-${{ hashFiles('**/CMakeLists.txt') }}
+          key: geode-sdk-android64-v3-${{ hashFiles('**/CMakeLists.txt') }}
           restore-keys: |
-            geode-sdk-android64-v2-
+            geode-sdk-android64-v3-
 
       - name: Setup NDK
         uses: nttld/setup-ndk@v1
@@ -36,22 +37,16 @@ jobs:
           sudo mv /tmp/geode-cli/geode /usr/local/bin/
           geode --version
 
-      - name: Setup Geode Config
+      - name: Setup Geode Profile (non-interactive)
         run: |
           mkdir -p ~/.config/geode
-          cat > ~/.config/geode/config.json << 'EOF'
-          {
-            "default-profile": "default",
-            "profiles": {
-              "default": {
-                "sdk-path": "/home/runner/.geode/sdk"
-              }
-            }
-          }
-          EOF
+          # Create profile via geode CLI directly
+          geode profile new default --path ~/.geode/sdk || true
+          geode profile switch default || true
 
       - name: Install SDK & Fix Codegen
         run: |
+          export GEODE_SDK=~/.geode/sdk
           geode sdk install
           geode sdk install-binaries
           find ~/.geode -name "Codegen" -type f -exec chmod +x {} \; 2>/dev/null || true
@@ -59,7 +54,7 @@ jobs:
 
       - name: Configure & Build
         run: |
-          export GEODE_SDK=/home/runner/.geode/sdk
+          export GEODE_SDK=~/.geode/sdk
           cmake -B build \
             -S . \
             -DCMAKE_BUILD_TYPE=Release \
