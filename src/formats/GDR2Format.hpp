@@ -23,7 +23,7 @@ public:
         uint8_t button;
         bool player2;
         bool down;
-        std::unique_ptr<PhysicsData> physics; // FIXED: was raw pointer, now unique_ptr
+        std::unique_ptr<PhysicsData> physics;
     };
 
     struct Replay {
@@ -62,19 +62,21 @@ public:
         writer.writeVarU64(replay.botInfo.version);
         writer.writeVarU64(replay.levelInfo.id);
         writer.writeStringVar(replay.levelInfo.name);
-        writer.writeVarU64(0);
+        writer.writeVarU64(0); // ext size placeholder
         writer.writeVarU64(replay.deaths.size());
         uint64_t prevDeath = 0;
         for (uint64_t death : replay.deaths) {
             writer.writeVarU64(death - prevDeath);
             prevDeath = death;
         }
+        
         size_t p1Count = 0;
         for (const auto& inp : replay.inputs) {
             if (!inp.player2) p1Count++;
         }
         writer.writeVarU64(replay.inputs.size());
         writer.writeVarU64(p1Count);
+        
         uint64_t prevFrame = 0;
         for (const auto& input : replay.inputs) {
             if (input.player2) continue;
@@ -151,19 +153,31 @@ public:
         replay.levelInfo.id = static_cast<uint32_t>(reader.readVarU64());
         replay.levelInfo.name = reader.readStringVar();
         uint64_t extSize = reader.readVarU64();
+        if (extSize > reader.remaining()) {
+            throw std::runtime_error("GDR2 ext size exceeds remaining data");
+        }
         reader.skip(extSize);
+        
         uint64_t deathCount = reader.readVarU64();
         uint64_t prevDeath = 0;
         for (uint64_t i = 0; i < deathCount; i++) {
             prevDeath += reader.readVarU64();
             replay.deaths.push_back(prevDeath);
         }
+        
         uint64_t totalInputs = reader.readVarU64();
         uint64_t p1Inputs = reader.readVarU64();
+        if (p1Inputs > totalInputs) {
+            throw std::runtime_error("GDR2 parse error: p1Inputs > totalInputs");
+        }
+        uint64_t p2Inputs = totalInputs - p1Inputs;
+        
         uint64_t p1Remaining = p1Inputs;
+        uint64_t p2Remaining = p2Inputs;
         uint64_t prevFrame = 0;
         
         while (reader.remaining() > 0 && replay.inputs.size() < totalInputs) {
+            if (reader.remaining() < 1) break;
             uint64_t packed = reader.readVarU64();
             uint64_t delta;
             uint8_t button;
@@ -182,6 +196,7 @@ public:
             input.button = button;
             input.player2 = isP2;
             input.down = down;
+            
             if (hasExtension) {
                 if (reader.remaining() == 0) break;
                 uint64_t extLen = reader.readVarU64();
@@ -201,15 +216,21 @@ public:
             }
             prevFrame = frame;
             replay.inputs.push_back(std::move(input));
+            
             if (p1Remaining > 0) {
                 p1Remaining--;
                 if (p1Remaining == 0) prevFrame = 0;
+            } else if (p2Remaining > 0) {
+                p2Remaining--;
+                if (p2Remaining == 0) prevFrame = 0;
             }
         }
         
-        // Validate: p1Remaining should be 0 and we should have read all inputs
         if (p1Remaining != 0) {
             throw std::runtime_error("GDR2 parse error: P1 input count mismatch");
+        }
+        if (p2Remaining != 0) {
+            throw std::runtime_error("GDR2 parse error: P2 input count mismatch");
         }
         if (replay.inputs.size() != totalInputs) {
             throw std::runtime_error("GDR2 parse error: total input count mismatch");
