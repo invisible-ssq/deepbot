@@ -1,11 +1,176 @@
 #include "DeepBotUI.hpp"
 #include "../DeepBot.hpp"
-#include <geode/ui/GeodeUI.hpp>
 #include <algorithm>
 
 using namespace geode::prelude;
 
 namespace deepbot {
+
+// Draggable button that opens DeepBotUI
+class DeepBotButton : public CCMenuItemSpriteExtra {
+public:
+    static DeepBotButton* create() {
+        auto* btn = new DeepBotButton();
+        if (btn && btn->init()) {
+            btn->autorelease();
+            return btn;
+        }
+        delete btn;
+        return nullptr;
+    }
+
+    bool init() {
+        // Create circular background (logo placeholder)
+        auto* bg = CCSprite::create("GJ_button_01.png");
+        if (!bg) {
+            // Fallback: create simple circle
+            bg = CCSprite::create();
+            auto* circle = CCDrawNode::create();
+            circle->drawDot(ccp(0, 0), 25, ccc4FFromccc3B({100, 150, 255}));
+            bg->addChild(circle);
+        }
+        bg->setScale(2.5f);
+
+        // Add "DB" text label
+        auto* label = CCLabelBMFont::create("DB", "bigFont.fnt");
+        label->setScale(0.4f);
+        label->setPosition(bg->getContentSize() / 2);
+        bg->addChild(label);
+
+        if (!CCMenuItemSpriteExtra::init(bg, nullptr, this, menu_selector(DeepBotButton::onClick))) {
+            return false;
+        }
+
+        m_draggable = true;
+        m_dragging = false;
+        m_dragStartPos = ccp(0, 0);
+        m_dragStartTouch = ccp(0, 0);
+
+        return true;
+    }
+
+    void onClick(CCObject*) {
+        if (!m_dragging) {
+            DeepBotUI::create()->show();
+        }
+    }
+
+    // Enable dragging
+    void selected() override {
+        CCMenuItemSpriteExtra::selected();
+        m_dragging = false;
+    }
+
+    void unselected() override {
+        CCMenuItemSpriteExtra::unselected();
+        m_dragging = false;
+    }
+
+    void activate() override {
+        if (!m_dragging) {
+            CCMenuItemSpriteExtra::activate();
+        }
+    }
+
+    bool ccTouchBegan(CCTouch* touch, CCEvent* event) override {
+        if (!isVisible() || !m_enabled) return false;
+        
+        auto pos = convertToNodeSpace(touch->getLocation());
+        auto rect = CCRect(0, 0, getContentSize().width, getContentSize().height);
+        
+        if (rect.containsPoint(pos)) {
+            m_dragging = false;
+            m_dragStartPos = getPosition();
+            m_dragStartTouch = touch->getLocation();
+            selected();
+            return true;
+        }
+        return false;
+    }
+
+    void ccTouchMoved(CCTouch* touch, CCEvent* event) override {
+        auto delta = ccpSub(touch->getLocation(), m_dragStartTouch);
+        if (ccpLength(delta) > 10) {
+            m_dragging = true;
+        }
+        if (m_dragging) {
+            auto newPos = ccpAdd(m_dragStartPos, delta);
+            // Clamp to screen bounds
+            auto winSize = CCDirector::sharedDirector()->getWinSize();
+            auto halfW = getContentSize().width * getScale() / 2;
+            auto halfH = getContentSize().height * getScale() / 2;
+            newPos.x = std::clamp(newPos.x, halfW, winSize.width - halfW);
+            newPos.y = std::clamp(newPos.y, halfH, winSize.height - halfH);
+            setPosition(newPos);
+        }
+    }
+
+    void ccTouchEnded(CCTouch* touch, CCEvent* event) override {
+        unselected();
+        if (!m_dragging) {
+            activate();
+        }
+        m_dragging = false;
+    }
+
+    void ccTouchCancelled(CCTouch* touch, CCEvent* event) override {
+        unselected();
+        m_dragging = false;
+    }
+
+private:
+    bool m_draggable = true;
+    bool m_dragging = false;
+    CCPoint m_dragStartPos;
+    CCPoint m_dragStartTouch;
+};
+
+// MenuLayer hook - add button to main menu
+class $modify(MenuLayerDeepBot, MenuLayer) {
+    bool init() {
+        if (!MenuLayer::init()) return false;
+
+        if (!Mod::get()->isEnabled()) return true;
+        if (!Mod::get()->getSettingValue<bool>("show-button")) return true;
+
+        auto winSize = CCDirector::sharedDirector()->getWinSize();
+        
+        auto* menu = CCMenu::create();
+        menu->setPosition(0, 0);
+        
+        auto* btn = DeepBotButton::create();
+        btn->setPosition(winSize.width - 50, winSize.height - 100);
+        btn->setID("deepbot-button"_spr);
+        menu->addChild(btn);
+        
+        this->addChild(menu, 100);
+        return true;
+    }
+};
+
+// PauseLayer hook - add button to pause menu (in addition to existing menu button)
+class $modify(PauseLayerDeepBot, PauseLayer) {
+    void customSetup() {
+        PauseLayer::customSetup();
+
+        if (!Mod::get()->isEnabled()) return;
+        if (!Mod::get()->getSettingValue<bool>("show-button")) return;
+
+        auto winSize = CCDirector::sharedDirector()->getWinSize();
+        
+        auto* menu = CCMenu::create();
+        menu->setPosition(0, 0);
+        
+        auto* btn = DeepBotButton::create();
+        btn->setPosition(winSize.width - 50, winSize.height - 50);
+        btn->setID("deepbot-pause-button"_spr);
+        menu->addChild(btn);
+        
+        this->addChild(menu, 100);
+    }
+};
+
+// ... rest of DeepBotUI implementation stays the same ...
 
 bool DeepBotUI::setup() {
     auto winSize = CCDirector::sharedDirector()->getWinSize();
@@ -163,33 +328,5 @@ void DeepBotUI::updateStatus(const std::string& status) {
         m_statusLabel->setString(status.c_str());
     }
 }
-
-// Pause menu button (respects "show-button" setting)
-class $modify(PauseLayerDeepBot, PauseLayer) {
-    void customSetup() {
-        PauseLayer::customSetup();
-
-        if (!Mod::get()->isEnabled()) return;
-        
-        auto showButton = Mod::get()->getSettingValue<bool>("show-button");
-        if (!showButton) return;
-
-        auto winSize = CCDirector::sharedDirector()->getWinSize();
-        auto* btn = CCMenuItemSpriteExtra::create(
-            ButtonSprite::create("deepbot", 80, true, "bigFont.fnt", "GJ_button_01.png", 30, 1.0f),
-            this,
-            menu_selector(PauseLayerDeepBot::onDeepBot)
-        );
-
-        auto* menu = CCMenu::create();
-        menu->addChild(btn);
-        menu->setPosition(winSize.width - 50.f, winSize.height - 50.f);
-        this->addChild(menu);
-    }
-
-    void onDeepBot(CCObject*) {
-        DeepBotUI::create()->show();
-    }
-};
 
 } // namespace deepbot
