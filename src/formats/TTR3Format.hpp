@@ -26,7 +26,6 @@ public:
     };
 
     static std::vector<uint8_t> write(const Replay& replay) {
-        // Build header content first
         BinaryWriter headerContent;
         headerContent.writeU64(0x00000000FFFF0003);
         headerContent.writeU64(0);
@@ -42,16 +41,6 @@ public:
 
         uint32_t headerContentSize = static_cast<uint32_t>(headerContent.size());
 
-        // Now build full writer
-        BinaryWriter writer;
-        writer.writeBytes(reinterpret_cast<const uint8_t*>(MAGIC), 4);
-        writer.writeU16(VERSION);
-        writer.writeU16(0);  // reserved
-        writer.writeU32(0x400);  // flags
-        writer.writeU32(headerContentSize);  // header length
-        writer.writeBytes(headerContent.data().data(), headerContent.size());
-
-        // Build inputs section
         BinaryWriter inputsSection;
         inputsSection.writeU64(replay.inputs.size());
         for (const auto& input : replay.inputs) {
@@ -61,21 +50,30 @@ public:
             inputsSection.writeU16(input.reserved);
         }
 
-        // Section table
-        writer.writeU16(1);  // section count
-        writer.writeU8(1);   // section kind (inputs)
-        writer.writeU8(0);
-        writer.writeU8(0);
-        writer.writeU8(0);
-        writer.writeU64(0);  // offset (will be 0 in single-section)
-        writer.writeU64(inputsSection.size());
-
-        // Compress inputs
         uLongf compressedSize = compressBound(inputsSection.size());
         std::vector<uint8_t> compressed(compressedSize);
         compress2(compressed.data(), &compressedSize,
             inputsSection.data().data(), inputsSection.size(), Z_DEFAULT_COMPRESSION);
         compressed.resize(compressedSize);
+
+        BinaryWriter writer;
+        writer.writeBytes(reinterpret_cast<const uint8_t*>(MAGIC), 4);
+        writer.writeU16(VERSION);
+        writer.writeU16(0);
+        writer.writeU32(0x400);
+        writer.writeU32(headerContentSize);
+        writer.writeBytes(headerContent.data().data(), headerContent.size());
+
+        // Section table with correct offset
+        writer.writeU16(1);
+        writer.writeU8(1);
+        writer.writeU8(0);
+        writer.writeU8(0);
+        writer.writeU8(0);
+        writer.writeU64(0); // offset in uncompressed data
+        writer.writeU64(inputsSection.size());
+
+        writer.writeVarU64(compressed.size());
         writer.writeBytes(compressed.data(), compressed.size());
 
         return writer.intoVec();
@@ -95,7 +93,9 @@ public:
         uint32_t flags = reader.readU32();
         uint32_t headerLen = reader.readU32();
 
-        // Skip header content
+        if (headerLen > reader.remaining()) {
+            throw std::runtime_error("TTR3 header length exceeds file size");
+        }
         reader.skip(headerLen);
 
         uint16_t sectionCount = reader.readU16();
@@ -110,10 +110,14 @@ public:
             sections.push_back(sec);
         }
 
+        if (reader.remaining() == 0) {
+            throw std::runtime_error("TTR3: no payload data");
+        }
+
         auto payload = reader.readBytes(reader.remaining());
         std::vector<uint8_t> decoded;
         if (flags & (1 << 10)) {
-            uLongf uncompressedSize = sections.empty() ? 0 :
+            uLongf uncompressedSize = sections.empty() ? payload.size() * 4 :
                 sections.back().offset + sections.back().size;
             decoded.resize(uncompressedSize);
             int result = uncompress(decoded.data(), &uncompressedSize,
@@ -133,8 +137,11 @@ public:
             }
             BinaryReader secReader(decoded.data() + sec.offset, sec.size);
             uint64_t count = secReader.readU64();
+            if (count > 10000000) {
+                throw std::runtime_error("TTR3: suspicious input count");
+            }
             replay.inputs.reserve(count);
-            for (uint64_t i = 0; i < count; i++) {
+            for (uint64_t i = 0; i < count && secReader.remaining() >= 12; i++) {
                 Input input;
                 input.timeSeconds = secReader.readF64();
                 input.actionType = secReader.readU8();
