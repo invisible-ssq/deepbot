@@ -24,11 +24,9 @@ void MacroPlayer::stopPlayback() {
 void MacroPlayer::update(double currentTime) {
     if (!m_playing) return;
 
-    // Process all frames up to current time
     while (m_currentIndex < m_frames.size() &&
            m_frames[m_currentIndex].absoluteTime <= currentTime) {
 
-        // Skip if already processed (dedup by index, not time)
         if (static_cast<int>(m_currentIndex) == m_lastProcessedIndex) {
             m_currentIndex++;
             continue;
@@ -37,8 +35,9 @@ void MacroPlayer::update(double currentTime) {
         const auto& frame = m_frames[m_currentIndex];
         auto* playLayer = PlayLayer::get();
         if (playLayer) {
-            int button = frame.button == 2 ? 2 : (frame.button == 3 ? 3 : 1);
-            // 3rd param: isPlayer1 (true = P1, false = P2)
+            uint8_t btn = frame.button;
+            if (btn == 0 || btn > 3) btn = 1;
+            int button = (btn == 2) ? 2 : (btn == 3 ? 3 : 1);
             playLayer->handleButton(frame.down, button, !frame.player2);
         }
         m_lastProcessedIndex = static_cast<int>(m_currentIndex);
@@ -55,7 +54,10 @@ bool MacroPlayer::hasNextFrame() const {
 }
 
 TPSIndependentFrame MacroPlayer::getNextFrame() const {
-    return m_frames[m_currentIndex];
+    if (m_currentIndex < m_frames.size()) {
+        return m_frames[m_currentIndex];
+    }
+    return TPSIndependentFrame{};
 }
 
 void MacroPlayer::advance() {
@@ -68,7 +70,6 @@ class $modify(PlayLayerPlayer, PlayLayer) {
         auto& player = DeepBot::instance().getPlayer();
         if (!player.isPlaying()) return;
 
-        // Use level time in seconds, fallback to CCDirector time
         double levelTime = 0.0;
         #if defined(GEODE_IS_WINDOWS)
             levelTime = this->m_gameState.m_levelTime;
