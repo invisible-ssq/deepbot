@@ -18,9 +18,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Pre-patch fmt
+        run: |
+          CPM_DIR="$GITHUB_WORKSPACE/cpm-cache/fmt/01ac001d8da09bd242594dc67d36dccb9854883e"
+          mkdir -p "$CPM_DIR/include/fmt"
+          curl -sL "https://raw.githubusercontent.com/fmtlib/fmt/10.1.1/include/fmt/format.h" | sed 's/constexpr auto operator"" _a/constexpr auto operator""_a/g' > "$CPM_DIR/include/fmt/format.h"
+          curl -sL "https://raw.githubusercontent.com/fmtlib/fmt/10.1.1/include/fmt/base.h" | sed 's/#define FMT_CONSTEVAL consteval/#define FMT_CONSTEVAL constexpr/g' > "$CPM_DIR/include/fmt/base.h"
+          curl -sL "https://raw.githubusercontent.com/fmtlib/fmt/10.1.1/include/fmt/core.h" | sed 's/#define FMT_CONSTEVAL consteval/#define FMT_CONSTEVAL constexpr/g' > "$CPM_DIR/include/fmt/core.h"
+          echo "fmt pre-patched"
+
       - name: Build Geode Mod
-        id: build
-        continue-on-error: true
         uses: geode-sdk/build-geode-mod@main
         with:
           sdk: nightly
@@ -30,21 +37,8 @@ jobs:
           use-lto: false
           export-symbols: false
 
-      - name: Patch fmt and retry
-        if: steps.build.outcome == 'failure'
-        run: |
-          # Find fmt headers
-          FMT_FILES=$(find . $HOME/.geode/sdk -path "*/fmt/*/include/fmt/*.h" 2>/dev/null)
-          for f in $FMT_FILES; do
-            sed -i 's/constexpr auto operator"" _a/constexpr auto operator""_a/g' "$f" 2>/dev/null || true
-            sed -i 's/#define FMT_CONSTEVAL consteval/#define FMT_CONSTEVAL constexpr/g' "$f" 2>/dev/null || true
-          done
-          # Retry build
-          cmake --build build --config Release --parallel 4
-
       - name: Upload Artifact
-        if: success() || steps.build.outcome == 'failure'
         uses: actions/upload-artifact@v4
         with:
           name: deepbot-android64
-          path: build/*.geode
+          path: ${{ steps.build.outputs.build-output }}
