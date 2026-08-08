@@ -8,7 +8,7 @@ using namespace geode::prelude;
 namespace deepbot {
 
 static double getDefaultTPS() {
-    return static_cast<double>(Mod::get()->getSettingValue<double>("default-tps"));
+    return static_cast<double>(Mod::get()->getSettingValue<int>("default-tps"));
 }
 
 void DeepBot::startRecording() {
@@ -17,10 +17,13 @@ void DeepBot::startRecording() {
 
     double tps = getDefaultTPS();
     uint32_t seed = 0;
-    // Try to get seed from game state, fallback to 0
-    auto& gameState = playLayer->m_gameState;
-    seed = gameState.m_unkRandSeed;
     
+    auto& gameState = playLayer->m_gameState;
+    // m_unkRandSeed may not exist in all GD versions, wrap safely
+    #if defined(GEODE_IS_WINDOWS)
+        seed = gameState.m_unkRandSeed;
+    #endif
+
     m_recorder.startRecording(tps, seed);
     m_currentMacro.clear();
 }
@@ -44,11 +47,12 @@ bool DeepBot::saveToFile(const std::string& path, const std::string& format) {
     try {
         auto unified = toUnified();
         auto data = DeepParser::serialize(unified, format);
-        
+
         std::ofstream file(path, std::ios::binary);
         if (!file) return false;
-        
+
         file.write(reinterpret_cast<const char*>(data.data()), static_cast<std::streamsize>(data.size()));
+        if (!file) return false;
         file.flush();
         return file.good();
     } catch (const std::exception& e) {
@@ -63,7 +67,7 @@ bool DeepBot::loadFromFile(const std::string& path, const std::string& format) {
 
     auto size = file.tellg();
     file.seekg(0, std::ios::beg);
-    
+
     std::vector<uint8_t> data(static_cast<size_t>(size));
     if (!file.read(reinterpret_cast<char*>(data.data()), size)) return false;
 
@@ -79,14 +83,14 @@ bool DeepBot::loadFromFile(const std::string& path, const std::string& format) {
 
 bool DeepBot::convertFormat(const std::string& srcPath, const std::string& srcFormat,
     const std::string& dstPath, const std::string& dstFormat) {
-    
-    auto oldMacro = m_currentMacro; // backup
+
+    auto oldMacro = m_currentMacro;
     if (!loadFromFile(srcPath, srcFormat)) {
-        m_currentMacro = oldMacro; // restore
+        m_currentMacro = oldMacro;
         return false;
     }
     bool ok = saveToFile(dstPath, dstFormat);
-    if (!ok) m_currentMacro = oldMacro; // restore on failure
+    if (!ok) m_currentMacro = oldMacro;
     return ok;
 }
 
