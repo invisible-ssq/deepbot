@@ -31,14 +31,9 @@ jobs:
 
       - name: Install Geode CLI
         run: |
-          # Hardcoded known-good URL for v3.8.0 linux x64
-          curl -L "https://github.com/geode-sdk/cli/releases/download/v3.8.0/geode-cli-v3.8.0-linux-x64.tar.gz" \
-            -H "Accept: application/octet-stream" \
-            -o /tmp/geode-cli.tar.gz
-          file /tmp/geode-cli.tar.gz
-          tar tzf /tmp/geode-cli.tar.gz | head -5
-          tar xzf /tmp/geode-cli.tar.gz -C /tmp
-          sudo mv /tmp/geode /usr/local/bin/
+          curl -L "https://github.com/geode-sdk/cli/releases/download/v3.8.0/geode-cli-v3.8.0-linux.zip" -o /tmp/geode-cli.zip
+          unzip /tmp/geode-cli.zip -d /tmp/geode-cli
+          sudo mv /tmp/geode-cli/geode /usr/local/bin/
           geode --version
 
       - name: Install SDK & Fix Codegen
