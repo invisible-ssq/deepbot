@@ -91,15 +91,10 @@ public:
     }
 
     std::vector<uint8_t> readBytes(size_t count) {
-        if (m_pos + count > m_size) throw std::runtime_error("Bytes read out of bounds");
+        if (count > remaining()) throw std::runtime_error("Bytes read out of bounds");
         std::vector<uint8_t> result(m_data + m_pos, m_data + m_pos + count);
         m_pos += count;
         return result;
-    }
-
-    const uint8_t* peek(size_t count) {
-        if (m_pos + count > m_size) return nullptr;
-        return m_data + m_pos;
     }
 };
 
