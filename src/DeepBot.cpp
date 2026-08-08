@@ -10,7 +10,9 @@ namespace deepbot {
 void DeepBot::startRecording() {
     auto* playLayer = PlayLayer::get();
     if (!playLayer) return;
-    m_recorder.startRecording(240.0, playLayer->m_gameState.m_unkRandSeed);
+    uint32_t seed = 0;
+    // Try to get seed from game state if available
+    m_recorder.startRecording(240.0, seed);
     m_currentMacro.clear();
 }
 

@@ -18,33 +18,47 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Install Geode CLI
+        run: |
+          # Download specific version
+          curl -L "https://github.com/geode-sdk/cli/releases/download/v3.8.0/geode-cli-v3.8.0-linux.zip" -o geode.zip ||           curl -L "https://github.com/geode-sdk/cli/releases/download/v3.7.0/geode-cli-v3.7.0-linux.zip" -o geode.zip ||           curl -L "https://github.com/geode-sdk/cli/releases/download/v3.6.0/geode-cli-v3.6.0-linux.zip" -o geode.zip
+          mkdir -p $HOME/geode-cli
+          unzip geode.zip -d $HOME/geode-cli || true
+          chmod +x $HOME/geode-cli/geode || chmod +x $HOME/geode-cli/bin/geode || true
+          echo "$HOME/geode-cli" >> $GITHUB_PATH
+          echo "$HOME/geode-cli/bin" >> $GITHUB_PATH
+
       - name: Install Geode SDK
         run: |
-          curl -L https://github.com/geode-sdk/cli/releases/latest/download/geode-cli-linux.zip -o geode.zip
-          unzip geode.zip -d $HOME/geode-cli
-          chmod +x $HOME/geode-cli/geode
-          echo "$HOME/geode-cli" >> $GITHUB_PATH
           geode sdk install
           geode sdk install-binaries -p android64
 
-      - name: Patch fmt (HACK for NDK r29)
+      - name: Configure CMake (first pass to download deps)
         run: |
-          FMT_DIR=$(find $HOME/.geode/sdk/cpm-cache/fmt -name "format.h" -path "*/include/fmt/*" | head -1 | xargs dirname)
-          if [ -n "$FMT_DIR" ]; then
-            sed -i 's/constexpr auto operator"" _a/constexpr auto operator""_a/g' $FMT_DIR/format.h
-            sed -i 's/#define FMT_CONSTEVAL consteval/#define FMT_CONSTEVAL constexpr/g' $FMT_DIR/base.h
-            echo "fmt patched"
-          fi
+          cmake -B build             -DCMAKE_BUILD_TYPE=Release             -DGEODE_SDK=$HOME/.geode/sdk             -T Android64             || true
 
-      - name: Configure
+      - name: Patch fmt
         run: |
-          cmake -B build             -DCMAKE_BUILD_TYPE=Release             -DCMAKE_CXX_FLAGS="-DFMT_CONSTEVAL=constexpr -Wno-deprecated-literal-operator"             -DGEODE_SDK=$HOME/.geode/sdk             -T Android64
+          find build -path "*/fmt/*/include/fmt/format.h" -exec sed -i 's/constexpr auto operator"" _a/constexpr auto operator""_a/g' {} +
+          find build -path "*/fmt/*/include/fmt/base.h" -exec sed -i 's/#define FMT_CONSTEVAL consteval/#define FMT_CONSTEVAL constexpr/g' {} +
+          find build -path "*/fmt/*/include/fmt/core.h" -exec sed -i 's/#define FMT_CONSTEVAL consteval/#define FMT_CONSTEVAL constexpr/g' {} +
+          find $HOME/.geode/sdk -path "*/fmt/*/include/fmt/format.h" -exec sed -i 's/constexpr auto operator"" _a/constexpr auto operator""_a/g' {} +
+          find $HOME/.geode/sdk -path "*/fmt/*/include/fmt/base.h" -exec sed -i 's/#define FMT_CONSTEVAL consteval/#define FMT_CONSTEVAL constexpr/g' {} +
+          find $HOME/.geode/sdk -path "*/fmt/*/include/fmt/core.h" -exec sed -i 's/#define FMT_CONSTEVAL consteval/#define FMT_CONSTEVAL constexpr/g' {} +
 
       - name: Build
-        run: cmake --build build --config Release --parallel 4
+        run: |
+          cmake --build build --config Release --parallel 4
+
+      - name: Package
+        run: |
+          cd build
+          cpack -G ZIP || true
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: deepbot-android64
-          path: build/*.geode
+          path: |
+            build/*.geode
+            build/**/*.geode
