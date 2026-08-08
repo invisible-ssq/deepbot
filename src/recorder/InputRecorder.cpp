@@ -24,16 +24,17 @@ void InputRecorder::recordInput(bool down, bool player2, uint8_t button,
 
     if (!m_recording) return;
 
-    // Per-button deduplication - skip duplicate inputs
+    // Validate button index
+    if (button == 0 || button > 3) button = 1;
+
     auto& lastDown = player2 ? m_lastP2Down : m_lastP1Down;
     if (button < lastDown.size() && down == lastDown[button]) {
-        return; // skip duplicate
+        return;
     }
 
     auto* playLayer = PlayLayer::get();
     if (!playLayer) return;
 
-    // Use level time in seconds, fallback to CCDirector time if unavailable
     double time = 0.0;
     #if defined(GEODE_IS_WINDOWS)
         time = playLayer->m_gameState.m_levelTime;
