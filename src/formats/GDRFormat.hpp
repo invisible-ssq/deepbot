@@ -62,23 +62,26 @@ public:
             replay.level.name = val["level"]["name"].asString().unwrapOr("");
         }
         if (val.contains("inputs")) {
-            for (const auto& inp : val["inputs"].asArray().unwrapOr(std::vector<matjson::Value>())) {
-                Input input;
-                input.player2 = inp["2p"].asBool().unwrapOr(false);
-                input.button = inp["btn"].asInt().unwrapOr(1);
-                input.down = inp["down"].asBool().unwrapOr(false);
-                input.frame = inp["frame"].asInt().unwrapOr(0);
-                if (inp.contains("correction")) {
-                    auto& c = inp["correction"];
-                    input.correction.nodeXPos = static_cast<float>(c["nodeXPos"].asDouble().unwrapOr(0.0));
-                    input.correction.nodeYPos = static_cast<float>(c["nodeYPos"].asDouble().unwrapOr(0.0));
-                    input.correction.player2 = c["player2"].asBool().unwrapOr(false);
-                    input.correction.rotation = static_cast<float>(c["rotation"].asDouble().unwrapOr(0.0));
-                    input.correction.xPos = static_cast<float>(c["xPos"].asDouble().unwrapOr(0.0));
-                    input.correction.yPos = static_cast<float>(c["yPos"].asDouble().unwrapOr(0.0));
-                    input.correction.yVel = static_cast<float>(c["yVel"].asDouble().unwrapOr(0.0));
+            auto inputsResult = val["inputs"].asArray();
+            if (inputsResult.isOk()) {
+                for (const auto& inp : inputsResult.unwrap()) {
+                    Input input;
+                    input.player2 = inp["2p"].asBool().unwrapOr(false);
+                    input.button = inp["btn"].asInt().unwrapOr(1);
+                    input.down = inp["down"].asBool().unwrapOr(false);
+                    input.frame = inp["frame"].asInt().unwrapOr(0);
+                    if (inp.contains("correction")) {
+                        auto& c = inp["correction"];
+                        input.correction.nodeXPos = static_cast<float>(c["nodeXPos"].asDouble().unwrapOr(0.0));
+                        input.correction.nodeYPos = static_cast<float>(c["nodeYPos"].asDouble().unwrapOr(0.0));
+                        input.correction.player2 = c["player2"].asBool().unwrapOr(false);
+                        input.correction.rotation = static_cast<float>(c["rotation"].asDouble().unwrapOr(0.0));
+                        input.correction.xPos = static_cast<float>(c["xPos"].asDouble().unwrapOr(0.0));
+                        input.correction.yPos = static_cast<float>(c["yPos"].asDouble().unwrapOr(0.0));
+                        input.correction.yVel = static_cast<float>(c["yVel"].asDouble().unwrapOr(0.0));
+                    }
+                    replay.inputs.push_back(input);
                 }
-                replay.inputs.push_back(input);
             }
         }
         return replay;
