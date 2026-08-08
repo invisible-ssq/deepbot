@@ -2,6 +2,8 @@
 #include "../DeepBot.hpp"
 #include <Geode/utils/async.hpp>
 #include <Geode/utils/file.hpp>
+#include <Geode/modify/MenuLayer.hpp>
+#include <Geode/modify/PauseLayer.hpp>
 #include <algorithm>
 
 using namespace geode::prelude;
