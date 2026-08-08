@@ -1,9 +1,9 @@
 #pragma once
 #include <vector>
-#include <cstdint>
 #include <string>
 #include <sstream>
 #include <iomanip>
+#include <stdexcept>
 
 namespace deepbot {
 
@@ -27,19 +27,15 @@ public:
     static std::vector<uint8_t> write(const Replay& replay) {
         std::ostringstream oss;
         oss << std::fixed << std::setprecision(6);
-        oss << "# deepbot plaintext replay
-";
-        oss << "# fps: " << replay.fps << "
-";
-        oss << "# frame,down,player2,button
-";
+        oss << "# deepbot plaintext replay\n";
+        oss << "# fps: " << replay.fps << "\n";
+        oss << "# frame,down,player2,button\n";
 
         for (const auto& input : replay.inputs) {
             oss << input.frame << ","
                 << (input.down ? "1" : "0") << ","
                 << (input.player2 ? "1" : "0") << ","
-                << (int)input.button << "
-";
+                << (int)input.button << "\n";
         }
 
         std::string str = oss.str();
@@ -59,7 +55,11 @@ public:
                 // Parse fps from comment
                 if (line.find("fps:") != std::string::npos) {
                     size_t pos = line.find("fps:");
-                    replay.fps = std::stod(line.substr(pos + 4));
+                    try {
+                        replay.fps = std::stod(line.substr(pos + 4));
+                    } catch (...) {
+                        // Ignore parse error, use default
+                    }
                 }
                 continue;
             }
@@ -74,13 +74,18 @@ public:
 
             if (tokens.size() < 2) continue;
 
-            Input input;
-            input.frame = std::stoul(tokens[0]);
-            input.down = std::stoi(tokens[1]) != 0;
-            input.player2 = (tokens.size() > 2) ? (std::stoi(tokens[2]) != 0) : false;
-            input.button = (tokens.size() > 3) ? std::stoi(tokens[3]) : 1;
-            if (input.button == 0) input.button = 1;
-            replay.inputs.push_back(input);
+            try {
+                Input input;
+                input.frame = std::stoul(tokens[0]);
+                input.down = std::stoi(tokens[1]) != 0;
+                input.player2 = (tokens.size() > 2) ? (std::stoi(tokens[2]) != 0) : false;
+                input.button = (tokens.size() > 3) ? static_cast<uint8_t>(std::stoi(tokens[3])) : 1;
+                DeepParser::normalizeButton(input.button);
+                replay.inputs.push_back(input);
+            } catch (const std::exception& e) {
+                // Skip malformed line
+                continue;
+            }
         }
 
         return replay;
