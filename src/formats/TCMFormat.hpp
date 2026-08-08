@@ -6,9 +6,6 @@
 
 namespace deepbot {
 
-// TCBot / TCM Format (.tcm)
-// Simple binary: [fps:f64][count:u32][frame:u32][down:u8][p2:u8]...
-
 class TCMFormat {
 public:
     struct Input {
@@ -41,14 +38,17 @@ public:
         Replay replay;
         replay.fps = reader.readF64();
         uint32_t count = reader.readU32();
+        if (count > 10000000) {
+            throw std::runtime_error("TCM: suspicious input count");
+        }
         replay.inputs.reserve(count);
-        for (uint32_t i = 0; i < count; i++) {
+        for (uint32_t i = 0; i < count && reader.remaining() >= 7; i++) {
             Input input;
             input.frame = reader.readU32();
             input.down = reader.readU8() != 0;
             input.player2 = reader.readU8() != 0;
             input.button = reader.readU8();
-            DeepParser::normalizeButton(input.button);
+            normalizeButton(input.button);
             replay.inputs.push_back(input);
         }
         return replay;
