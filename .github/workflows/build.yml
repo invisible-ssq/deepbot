@@ -18,75 +18,40 @@ jobs:
       - name: Cache Geode SDK
         uses: actions/cache@v4
         with:
-          path: ~/geode-sdk
-          key: geode-sdk-android64-v14-${{ hashFiles('**/CMakeLists.txt') }}
+          path: ~/.geode
+          key: geode-sdk-android64-v15-${{ hashFiles('**/CMakeLists.txt') }}
           restore-keys: |
-            geode-sdk-android64-v14-
+            geode-sdk-android64-v15-
 
       - name: Setup NDK r28b
-        run: |
-          curl -L "https://dl.google.com/android/repository/android-ndk-r28b-linux.zip" -o /tmp/ndk.zip
-          unzip -q /tmp/ndk.zip -d /tmp/ndk
-          echo "/tmp/ndk/android-ndk-r28b" >> $GITHUB_PATH
-          echo "ANDROID_NDK_HOME=/tmp/ndk/android-ndk-r28b" >> $GITHUB_ENV
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r28b
+          add-to-path: true
 
-      - name: Install Geode CLI
+      - name: Pre-install Geode SDK & Fix Codegen
         run: |
-          curl -L "https://github.com/geode-sdk/cli/releases/download/v3.8.0/geode-cli-v3.8.0-linux.zip" -o /tmp/geode-cli.zip
-          unzip -o /tmp/geode-cli.zip -d /tmp/geode-cli
-          sudo mv /tmp/geode-cli/geode /usr/local/bin/
-          geode --version
+          # Install SDK manually to control permissions
+          mkdir -p ~/.geode/sdk
+          curl -L "https://github.com/geode-sdk/geode/releases/download/v5.8.2/geode-v5.8.2-android64.zip" -o /tmp/geode-sdk.zip
+          unzip -o /tmp/geode-sdk.zip -d ~/.geode/sdk/
+          
+          # Download and fix Codegen permissions BEFORE cmake runs
+          mkdir -p ~/.geode/sdk/bin
+          curl -L "https://github.com/geode-sdk/geode/releases/download/v5.8.2/codegen-linux" -o ~/.geode/sdk/bin/Codegen 2>/dev/null || \
+          curl -L "https://github.com/geode-sdk/cli/releases/download/v3.8.0/codegen-linux" -o ~/.geode/sdk/bin/Codegen 2>/dev/null || true
+          chmod +x ~/.geode/sdk/bin/Codegen 2>/dev/null || true
+          
+          # Also fix any existing Codegen
+          find ~/.geode -name "Codegen" -type f -exec chmod +x {} \; 2>/dev/null || true
 
-      - name: Download Geode SDK & Prebuilt Binaries
-        run: |
-          export GEODE_SDK=$HOME/geode-sdk
-          mkdir -p $GEODE_SDK
-          
-          # Download SDK source
-          if [ ! -f "$GEODE_SDK/CMakeLists.txt" ]; then
-            curl -L "https://github.com/geode-sdk/geode/archive/refs/tags/v5.8.2.zip" -o /tmp/geode-src.zip
-            unzip -o /tmp/geode-src.zip -d /tmp/geode-src
-            cp -r /tmp/geode-src/geode-5.8.2/* $GEODE_SDK/
-          fi
-          
-          # Download prebuilt Android64 binaries (loader + codegen)
-          mkdir -p $GEODE_SDK/bin
-          curl -L "https://github.com/geode-sdk/geode/releases/download/v5.8.2/geode-v5.8.2-android64.zip" -o /tmp/geode-bin.zip
-          unzip -o /tmp/geode-bin.zip -d $GEODE_SDK/bin/
-          
-          # Also create build/android64 symlink for CMake
-          mkdir -p $GEODE_SDK/build
-          ln -sf $GEODE_SDK/bin $GEODE_SDK/build/android64 2>/dev/null || \
-            cp -r $GEODE_SDK/bin/* $GEODE_SDK/build/android64/ 2>/dev/null || true
-          
-          # Fix permissions
-          find $GEODE_SDK -name "Codegen" -type f -exec chmod +x {} \; 2>/dev/null || true
-          
-          echo "GEODE_SDK=$GEODE_SDK" >> $GITHUB_ENV
-
-      - name: Configure (two-pass for Codegen)
-        run: |
-          cmake -B build \
-            -S . \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DGEODE_TARGET_PLATFORM=Android64 \
-            -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake \
-            -DANDROID_ABI=arm64-v8a \
-            -DANDROID_PLATFORM=android-23 2>/dev/null || true
-          
-          find build -name "Codegen" -type f -exec chmod +x {} \; 2>/dev/null || true
-          
-          cmake -B build \
-            -S . \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DGEODE_TARGET_PLATFORM=Android64 \
-            -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake \
-            -DANDROID_ABI=arm64-v8a \
-            -DANDROID_PLATFORM=android-23
-
-      - name: Build Mod
-        run: |
-          cmake --build build --config Release -j$(nproc)
+      - name: Build the mod
+        uses: geode-sdk/build-geode-mod@main
+        with:
+          combine: true
+          target: Android64
+          sdk: 5.8.2
+          cmake-args: "-DANDROID_PLATFORM=android-23"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
