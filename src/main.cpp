@@ -1,5 +1,5 @@
 #include <string>
-#include <geode/loader/Mod.hpp>
+#include <Geode/loader/Mod.hpp>
 #include "DeepBot.hpp"
 #include "ui/DeepBotUI.hpp"
 #include "formats/DeepParser.hpp"
