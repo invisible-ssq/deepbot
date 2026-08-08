@@ -583,4 +583,44 @@ public:
         EchoFormat::Replay e;
         e.fps = replay.tps;
         for (const auto& inp : replay.inputs) {
-            Echo
+            EchoFormat::Input ei;
+            ei.frame = static_cast<uint64_t>(inp.absoluteTime * replay.tps);
+            ei.down = inp.down;
+            ei.player2 = inp.player2;
+            ei.button = inp.button;
+            e.inputs.push_back(ei);
+        }
+        return e;
+    }
+
+    static UnifiedReplay txtToUnified(const PlaintextFormat::Replay& replay) {
+        UnifiedReplay u;
+        u.tps = replay.fps;
+        for (const auto& inp : replay.inputs) {
+            UnifiedInput ui;
+            ui.absoluteTime = inp.frame / replay.fps;
+            ui.down = inp.down;
+            ui.player2 = inp.player2;
+            ui.button = inp.button;
+            normalizeButton(ui.button);
+            u.inputs.push_back(ui);
+        }
+        return u;
+    }
+
+    static PlaintextFormat::Replay unifiedToTxt(const UnifiedReplay& replay) {
+        PlaintextFormat::Replay t;
+        t.fps = replay.tps;
+        for (const auto& inp : replay.inputs) {
+            PlaintextFormat::Input ti;
+            ti.frame = static_cast<uint32_t>(inp.absoluteTime * replay.tps);
+            ti.down = inp.down;
+            ti.player2 = inp.player2;
+            ti.button = inp.button;
+            t.inputs.push_back(ti);
+        }
+        return t;
+    }
+};
+
+} // namespace deepbot
