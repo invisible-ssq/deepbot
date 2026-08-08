@@ -30,7 +30,20 @@ void DeepBot::startRecording() {
 
 void DeepBot::stopRecording() {
     m_recorder.stopRecording();
-    m_currentMacro = m_recorder.getFrames();
+    // Конвертируем RecordedFrame → TPSIndependentFrame
+    m_currentMacro.clear();
+    for (const auto& frame : m_recorder.getFrames()) {
+        TPSIndependentFrame f;
+        f.absoluteTime = frame.absoluteTime;
+        f.down = frame.down;
+        f.player2 = frame.player2;
+        f.button = frame.button;
+        f.x = frame.x;
+        f.y = frame.y;
+        f.rotation = frame.rotation;
+        f.yAccel = frame.yAccel;
+        m_currentMacro.push_back(f);
+    }
 }
 
 void DeepBot::startPlayback() {
