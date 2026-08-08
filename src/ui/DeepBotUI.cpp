@@ -18,7 +18,7 @@ public:
         return nullptr;
     }
 
-    bool init() {
+    bool init() override {
         auto* bg = CCSprite::create("GJ_button_01.png");
         if (!bg) {
             bg = CCSprite::create();
@@ -68,7 +68,7 @@ public:
     }
 
     bool ccTouchBegan(CCTouch* touch, CCEvent* event) override {
-        if (!isVisible() || !m_enabled) return false;
+        if (!isVisible() || !m_bEnabled) return false;
         
         auto pos = convertToNodeSpace(touch->getLocation());
         auto rect = CCRect(0, 0, getContentSize().width, getContentSize().height);
@@ -120,13 +120,12 @@ private:
 };
 
 class $modify(MenuLayerDeepBot, MenuLayer) {
-    bool init() {
+    bool init() override {
         if (!MenuLayer::init()) return false;
 
         if (!Mod::get()->isEnabled()) return true;
         if (!Mod::get()->getSettingValue<bool>("show-button")) return true;
 
-        // Prevent duplicate buttons
         if (this->getChildByID("deepbot-menu"_spr)) return true;
 
         auto winSize = CCDirector::sharedDirector()->getWinSize();
@@ -146,13 +145,12 @@ class $modify(MenuLayerDeepBot, MenuLayer) {
 };
 
 class $modify(PauseLayerDeepBot, PauseLayer) {
-    void customSetup() {
+    void customSetup() override {
         PauseLayer::customSetup();
 
         if (!Mod::get()->isEnabled()) return;
         if (!Mod::get()->getSettingValue<bool>("show-button")) return;
 
-        // Prevent duplicate buttons
         if (this->getChildByID("deepbot-pause-menu"_spr)) return;
 
         auto winSize = CCDirector::sharedDirector()->getWinSize();
@@ -205,7 +203,7 @@ bool DeepBotUI::setup() {
 
 DeepBotUI* DeepBotUI::create() {
     auto* ret = new DeepBotUI();
-    if (ret && ret->init(400.f, 280.f)) {
+    if (ret && ret->initAnchored(400.f, 280.f)) {
         ret->autorelease();
         return ret;
     }
