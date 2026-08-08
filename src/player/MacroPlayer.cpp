@@ -68,8 +68,13 @@ class $modify(PlayLayerPlayer, PlayLayer) {
         auto& player = DeepBot::instance().getPlayer();
         if (!player.isPlaying()) return;
 
-        // Use level time in seconds
-        double levelTime = this->m_gameState.m_levelTime;
+        // Use level time in seconds, fallback to CCDirector time
+        double levelTime = 0.0;
+        #if defined(GEODE_IS_WINDOWS)
+            levelTime = this->m_gameState.m_levelTime;
+        #else
+            levelTime = CCDirector::get()->getSeconds();
+        #endif
         player.update(levelTime);
     }
 
