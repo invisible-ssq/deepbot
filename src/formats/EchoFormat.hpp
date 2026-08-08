@@ -51,7 +51,7 @@ public:
             throw std::runtime_error("Invalid Echo magic");
         }
 
-        uint16_t version = reader.readU16();
+        [[maybe_unused]] uint16_t version = reader.readU16();
         replay.fps = reader.readF64();
         uint64_t count = reader.readVarU64();
         if (count > 10000000) {
