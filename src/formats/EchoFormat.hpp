@@ -7,9 +7,6 @@
 
 namespace deepbot {
 
-// Echo Format (.echo)
-// Binary format with simple structure
-
 class EchoFormat {
 public:
     static constexpr const char* MAGIC = "ECHO";
@@ -57,16 +54,19 @@ public:
         uint16_t version = reader.readU16();
         replay.fps = reader.readF64();
         uint64_t count = reader.readVarU64();
+        if (count > 10000000) {
+            throw std::runtime_error("Echo: suspicious input count");
+        }
         replay.inputs.reserve(count);
 
-        for (uint64_t i = 0; i < count; i++) {
+        for (uint64_t i = 0; i < count && reader.remaining() >= 2; i++) {
             Input input;
             input.frame = reader.readVarU64();
             uint8_t flags = reader.readU8();
             input.down = flags & 1;
             input.player2 = flags & 2;
             input.button = (flags >> 2) & 3;
-            DeepParser::normalizeButton(input.button);
+            normalizeButton(input.button);
             replay.inputs.push_back(input);
         }
 
