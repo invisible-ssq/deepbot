@@ -25,20 +25,41 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Cache Geode SDK
-        uses: actions/cache@v4
+      - name: Setup Geode CLI
+        uses: geode-sdk/cli@main
         with:
-          path: ~/.geode
-          key: geode-sdk-${{ matrix.config.target }}-${{ hashFiles('**/CMakeLists.txt') }}
-          restore-keys: |
-            geode-sdk-${{ matrix.config.target }}-
+          version: 3.8.0
 
-      - name: Build the mod
-        uses: geode-sdk/build-geode-mod@v1
+      - name: Install Geode SDK
+        run: |
+          geode sdk install
+          geode sdk install-binaries
+        env:
+          GEODE_SDK: ${{ github.workspace }}/geode-sdk
+
+      - name: Fix Codegen permissions (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          find ${{ github.workspace }}/geode-sdk -name "Codegen" -type f -exec chmod +x {} \; 2>/dev/null || true
+          find ${{ github.workspace }}/build -name "Codegen" -type f -exec chmod +x {} \; 2>/dev/null || true
+
+      - name: Build (Windows)
+        if: matrix.config.target == 'Win64'
+        run: |
+          cmake -B build -S . -DCMAKE_BUILD_TYPE=Release -DGEODE_TARGET_PLATFORM=Win64
+          cmake --build build --config Release -j4
+
+      - name: Build (Android64)
+        if: matrix.config.target == 'Android64'
+        run: |
+          cmake -B build -S . -DCMAKE_BUILD_TYPE=Release -DGEODE_TARGET_PLATFORM=Android64 -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-21
+          cmake --build build --config Release -j4
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
         with:
-          combine: true
-          target: ${{ matrix.config.target }}
-          sdk: 5.8.2
+          name: deepbot-${{ matrix.config.target }}
+          path: build/**/*.geode
 
   package:
     name: Package builds
@@ -47,12 +68,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Combine builds
-        uses: geode-sdk/build-geode-mod/combine@v1
-        id: build
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
 
-      - name: Upload artifact
+      - name: Package
+        run: |
+          mkdir -p package
+          cp artifacts/**/*.geode package/ 2>/dev/null || true
+
+      - name: Upload package
         uses: actions/upload-artifact@v4
         with:
-          name: deepbot_build
-          path: ${{ steps.build.outputs.build-output }}
+          name: deepbot_package
+          path: package/*.geode
