@@ -1,7 +1,6 @@
 #pragma once
 #include <vector>
 #include <string>
-#include <cstdint>
 #include "utils/TPSFix.hpp"
 #include "recorder/InputRecorder.hpp"
 #include "player/MacroPlayer.hpp"
@@ -30,7 +29,7 @@ public:
     bool saveToFile(const std::string& path, const std::string& format);
     bool loadFromFile(const std::string& path, const std::string& format);
     bool convertFormat(const std::string& srcPath, const std::string& srcFormat,
-        const std::string& dstPath, const std::string& dstFormat);
+                       const std::string& dstPath, const std::string& dstFormat);
     size_t getFrameCount() const { return m_currentMacro.size(); }
     double getDuration() const;
     InputRecorder& getRecorder() { return m_recorder; }
