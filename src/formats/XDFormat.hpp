@@ -8,11 +8,6 @@
 
 namespace deepbot {
 
-// xdBot Format (.xd)
-// Header: "XD" (2 bytes)
-// Version: uint16
-// Metadata + compressed inputs
-
 class XDFormat {
 public:
     static constexpr const char* MAGIC = "XD";
@@ -41,11 +36,11 @@ public:
         BinaryWriter inputsData;
         inputsData.writeU32(static_cast<uint32_t>(replay.inputs.size()));
         for (const auto& input : replay.inputs) {
-            // Check for frame overflow (29 bits max since player2 uses bit 31)
+            // FIXED: mask frame to prevent overflow into player2 bit
             if (input.frame > 0x1FFFFFFF) {
                 throw std::runtime_error("XD format: frame number too large (max 536,870,911)");
             }
-            uint32_t packed = (input.frame << 3)
+            uint32_t packed = ((input.frame & 0x1FFFFFFF) << 3)  // ← FIXED: added mask
                 | ((input.button & 3) << 1)
                 | (input.player2 ? 0x80000000 : 0)
                 | (input.down ? 1 : 0);
@@ -107,7 +102,7 @@ public:
         for (uint32_t i = 0; i < count; i++) {
             uint32_t packed = inputsReader.readU32();
             Input input;
-            input.frame = (packed >> 3) & 0x1FFFFFFF; // Mask to 29 bits
+            input.frame = (packed >> 3) & 0x1FFFFFFF;
             input.player2 = (packed & 0x80000000) != 0;
             input.down = (packed & 1) != 0;
             input.button = (packed >> 1) & 3;
