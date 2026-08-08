@@ -31,9 +31,6 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     src/utils
 )
 
-# REMOVED: find_package(ZLIB REQUIRED) - Geode provides this
-# REMOVED: find_package(nlohmann_json REQUIRED) - Geode provides this via CPM
-
 if(ANDROID)
     target_compile_definitions(${PROJECT_NAME} PRIVATE DEEPBOT_ANDROID)
     set_target_properties(${PROJECT_NAME} PROPERTIES
@@ -47,4 +44,5 @@ endif()
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -DNDEBUG")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra")
 
-create_geode_file(${PROJECT_NAME})
+# Use geode_package instead of create_geode_file
+geode_package(${PROJECT_NAME})
