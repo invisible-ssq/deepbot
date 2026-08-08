@@ -1,7 +1,7 @@
 #pragma once
 #include <vector>
-#include <cstdint>
 #include <string>
+#include <cstring>
 #include <algorithm>
 #include "../utils/BinaryReader.hpp"
 #include "../utils/BinaryWriter.hpp"
@@ -51,7 +51,8 @@ public:
         uint64_t prevFrame = 0;
         for (const auto& input : p1Inputs) {
             uint64_t delta = input.frame - prevFrame;
-            uint64_t packed = (delta << 1) | (input.down ? 1 : 0);
+            // Include button info: 2 bits for button, 1 for down
+            uint64_t packed = (delta << 3) | ((input.button & 3) << 1) | (input.down ? 1 : 0);
             writer.writeVarU64(packed);
             prevFrame = input.frame;
         }
@@ -60,7 +61,7 @@ public:
         prevFrame = 0;
         for (const auto& input : p2Inputs) {
             uint64_t delta = input.frame - prevFrame;
-            uint64_t packed = (delta << 1) | (input.down ? 1 : 0);
+            uint64_t packed = (delta << 3) | ((input.button & 3) << 1) | (input.down ? 1 : 0);
             writer.writeVarU64(packed);
             prevFrame = input.frame;
         }
@@ -86,14 +87,16 @@ public:
         uint64_t prevFrame = 0;
         for (uint64_t i = 0; i < p1Count; i++) {
             uint64_t packed = reader.readVarU64();
-            uint64_t delta = packed >> 1;
+            uint64_t delta = packed >> 3;
             bool down = (packed & 1) != 0;
+            uint8_t button = (packed >> 1) & 3;
             prevFrame += delta;
             Input input;
             input.frame = prevFrame;
             input.player2 = false;
             input.down = down;
-            input.button = 1;
+            input.button = button;
+            DeepParser::normalizeButton(input.button);
             replay.inputs.push_back(input);
         }
 
@@ -101,14 +104,16 @@ public:
         prevFrame = 0;
         for (uint64_t i = 0; i < p2Count; i++) {
             uint64_t packed = reader.readVarU64();
-            uint64_t delta = packed >> 1;
+            uint64_t delta = packed >> 3;
             bool down = (packed & 1) != 0;
+            uint8_t button = (packed >> 1) & 3;
             prevFrame += delta;
             Input input;
             input.frame = prevFrame;
             input.player2 = true;
             input.down = down;
-            input.button = 1;
+            input.button = button;
+            DeepParser::normalizeButton(input.button);
             replay.inputs.push_back(input);
         }
 
@@ -124,7 +129,6 @@ public:
         Replay replay;
         replay.fps = 240.0;
 
-        // ybf format: [fps:f64][count:u32][frames...]
         try {
             replay.fps = reader.readF64();
             uint32_t count = reader.readU32();
@@ -136,8 +140,8 @@ public:
                 input.button = 1;
                 replay.inputs.push_back(input);
             }
-        } catch (...) {
-            throw std::runtime_error("Invalid yBot format");
+        } catch (const std::exception& e) {
+            throw std::runtime_error(std::string("Invalid yBot format: ") + e.what());
         }
 
         return replay;
