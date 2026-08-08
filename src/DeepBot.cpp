@@ -18,9 +18,12 @@ void DeepBot::startRecording() {
     double tps = getDefaultTPS();
     uint32_t seed = 0;
     
-    // m_unkRandSeed may not exist on all platforms, use safe access
     #if defined(GEODE_IS_WINDOWS)
         seed = playLayer->m_gameState.m_unkRandSeed;
+    #else
+        // On Android, try to get seed from GameState if available
+        // Fallback to 0 (most levels don't use random seed)
+        seed = 0;
     #endif
 
     m_recorder.startRecording(tps, seed);
@@ -65,6 +68,10 @@ bool DeepBot::loadFromFile(const std::string& path, const std::string& format) {
     if (!file) return false;
 
     auto size = file.tellg();
+    if (size <= 0 || size > static_cast<std::streamoff>(1024 * 1024 * 100)) {
+        // Reject empty or >100MB files
+        return false;
+    }
     file.seekg(0, std::ios::beg);
 
     std::vector<uint8_t> data(static_cast<size_t>(size));
