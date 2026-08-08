@@ -2,7 +2,6 @@
 #include "../DeepBot.hpp"
 #include <Geode/utils/async.hpp>
 #include <Geode/utils/file.hpp>
-#include <Geode/modify/MenuLayer.hpp>
 #include <Geode/modify/PauseLayer.hpp>
 #include <algorithm>
 
@@ -10,7 +9,7 @@ using namespace geode::prelude;
 
 namespace deepbot {
 
-// ===== Маленькая плавающая кнопка =====
+// ===== Маленькая плавающая кнопка (перетаскиваемая) =====
 class DeepBotButton : public CCMenuItemSpriteExtra {
 public:
     static DeepBotButton* create() {
@@ -28,13 +27,13 @@ public:
         if (!bg) {
             bg = CCSprite::create();
             auto* circle = CCDrawNode::create();
-            circle->drawDot(ccp(0, 0), 15, ccc4FFromccc3B({100, 150, 255}));
+            circle->drawDot(ccp(0, 0), 12, ccc4FFromccc3B({100, 150, 255}));
             bg->addChild(circle);
         }
-        bg->setScale(1.2f);
+        bg->setScale(0.9f);
 
-        auto* label = CCLabelBMFont::create("DB", "bigFont.fnt");
-        label->setScale(0.25f);
+        auto* label = CCLabelBMFont::create("D", "bigFont.fnt");
+        label->setScale(0.3f);
         label->setPosition(bg->getContentSize() / 2);
         bg->addChild(label);
 
@@ -92,7 +91,7 @@ public:
 
     void ccTouchMoved(CCTouch* touch, CCEvent*) {
         auto delta = ccpSub(touch->getLocation(), m_dragStartTouch);
-        if (ccpLength(delta) > 8) {
+        if (ccpLength(delta) > 5) {
             m_dragging = true;
         }
         if (m_dragging) {
@@ -141,59 +140,50 @@ static void addDeepBotButton(CCLayer* layer, const char* menuID, const char* btn
     layer->addChild(menu, 100);
 }
 
-// ===== Хуки для кнопки в меню и паузе =====
-class $modify(MenuLayerDeepBot, MenuLayer) {
-    bool init() override {
-        if (!MenuLayer::init()) return false;
-        addDeepBotButton(this, "deepbot-menu", "deepbot-button", ccp(40, 40));
-        return true;
-    }
-};
-
+// ===== ТОЛЬКО на паузе в уровне, НЕТ в меню =====
 class $modify(PauseLayerDeepBot, PauseLayer) {
     void customSetup() override {
         PauseLayer::customSetup();
-        addDeepBotButton(this, "deepbot-pause-menu", "deepbot-pause-button", ccp(40, 40));
+        addDeepBotButton(this, "deepbot-pause-menu", "deepbot-pause-button", ccp(35, 35));
     }
 };
 
-// ===== Компактное меню =====
+// ===== Компактное меню как у xdbot =====
 bool DeepBotUI::init() {
     if (!FLAlertLayer::init(150)) return false;
 
     auto winSize = CCDirector::sharedDirector()->getWinSize();
 
-    // Очищаем стандартные элементы FLAlertLayer
     if (m_mainLayer) {
         m_mainLayer->removeAllChildrenWithCleanup(true);
     }
 
-    // Фон — маленький прямоугольник
+    // Фон
     auto* bg = CCScale9Sprite::create("GJ_square01.png");
-    bg->setContentSize({ 260, 140 });
+    bg->setContentSize({ 240, 130 });
     bg->setPosition(winSize.width / 2, winSize.height / 2);
     m_mainLayer->addChild(bg);
 
     // Заголовок
     auto* title = CCLabelBMFont::create("DeepBot", "bigFont.fnt");
-    title->setScale(0.4f);
-    title->setPosition(winSize.width / 2, winSize.height / 2 + 55);
+    title->setScale(0.35f);
+    title->setPosition(winSize.width / 2, winSize.height / 2 + 50);
     m_mainLayer->addChild(title);
 
     // Статус
     m_statusLabel = CCLabelBMFont::create("Ready", "goldFont.fnt");
-    m_statusLabel->setScale(0.3f);
-    m_statusLabel->setPosition(winSize.width / 2, winSize.height / 2 + 35);
+    m_statusLabel->setScale(0.28f);
+    m_statusLabel->setPosition(winSize.width / 2, winSize.height / 2 + 32);
     m_mainLayer->addChild(m_statusLabel);
 
-    // Кнопка закрытия (X)
+    // Кнопка закрытия
     auto* closeBtn = CCMenuItemSpriteExtra::create(
         CCSprite::createWithSpriteFrameName("GJ_closeBtn_001.png"),
         this,
         menu_selector(DeepBotUI::onClose)
     );
-    closeBtn->setScale(0.6f);
-    closeBtn->setPosition(winSize.width / 2 + 110, winSize.height / 2 + 55);
+    closeBtn->setScale(0.5f);
+    closeBtn->setPosition(winSize.width / 2 + 100, winSize.height / 2 + 50);
 
     auto* closeMenu = CCMenu::create();
     closeMenu->setPosition(0, 0);
@@ -205,13 +195,13 @@ bool DeepBotUI::init() {
     row1->setPosition(winSize.width / 2, winSize.height / 2 + 5);
 
     auto createBtn = [&](const char* text, ccColor3B color, SEL_MenuHandler handler) {
-        auto* spr = ButtonSprite::create(text, 60, true, "bigFont.fnt", "GJ_button_01.png", 25, 0.55f);
+        auto* spr = ButtonSprite::create(text, 50, true, "bigFont.fnt", "GJ_button_01.png", 20, 0.5f);
         auto* btn = CCMenuItemSpriteExtra::create(spr, this, handler);
         return btn;
     };
 
     m_recordBtn = createBtn("Rec", {255, 80, 80}, menu_selector(DeepBotUI::onRecord));
-    m_recordBtn->setPosition(-70, 0);
+    m_recordBtn->setPosition(-60, 0);
     row1->addChild(m_recordBtn);
 
     m_stopBtn = createBtn("Stop", {255, 200, 80}, menu_selector(DeepBotUI::onStop));
@@ -220,33 +210,29 @@ bool DeepBotUI::init() {
     row1->addChild(m_stopBtn);
 
     m_playBtn = createBtn("Play", {80, 255, 80}, menu_selector(DeepBotUI::onPlay));
-    m_playBtn->setPosition(70, 0);
+    m_playBtn->setPosition(60, 0);
     row1->addChild(m_playBtn);
 
     m_mainLayer->addChild(row1);
 
-    // Ряд 2: Save | Load | Conv
+    // Ряд 2: Save | Load
     auto* row2 = CCMenu::create();
-    row2->setPosition(winSize.width / 2, winSize.height / 2 - 35);
+    row2->setPosition(winSize.width / 2, winSize.height / 2 - 28);
 
     auto* saveBtn = createBtn("Save", {150, 150, 255}, menu_selector(DeepBotUI::onSave));
-    saveBtn->setPosition(-70, 0);
+    saveBtn->setPosition(-45, 0);
     row2->addChild(saveBtn);
 
     auto* loadBtn = createBtn("Load", {150, 255, 150}, menu_selector(DeepBotUI::onLoad));
-    loadBtn->setPosition(0, 0);
+    loadBtn->setPosition(45, 0);
     row2->addChild(loadBtn);
-
-    auto* convBtn = createBtn("Conv", {255, 200, 100}, menu_selector(DeepBotUI::onConvert));
-    convBtn->setPosition(70, 0);
-    row2->addChild(convBtn);
 
     m_mainLayer->addChild(row2);
 
-    // Версия внизу
+    // Версия
     auto* ver = CCLabelBMFont::create("v1.0.1", "chatFont.fnt");
-    ver->setScale(0.35f);
-    ver->setPosition(winSize.width / 2, winSize.height / 2 - 60);
+    ver->setScale(0.3f);
+    ver->setPosition(winSize.width / 2, winSize.height / 2 - 52);
     m_mainLayer->addChild(ver);
 
     refreshButtons();
@@ -326,27 +312,155 @@ void DeepBotUI::onPlay(CCObject*) {
     updateStatus("Playing...");
 }
 
+// ===== Save: выбор формата или custom =====
 void DeepBotUI::onSave(CCObject*) {
-    geode::async::spawn(
-        file::pick(file::PickMode::SaveFile, {
-            .defaultPath = "",
-            .filters = {
-                { .description = "deepbot macros", .files = { "*.deep" }}
-            }
-        }),
-        [](Result<std::optional<std::filesystem::path>> result) {
-            if (result.isErr()) return;
-            auto pathOpt = result.unwrap();
-            if (!pathOpt.has_value()) return;
+    auto& bot = DeepBot::instance();
+    if (bot.getFrameCount() == 0) {
+        updateStatus("Nothing to save!");
+        return;
+    }
 
-            auto& bot = DeepBot::instance();
-            std::string ext = pathOpt->extension().string();
-            if (!ext.empty() && ext[0] == '.') ext = ext.substr(1);
-            if (ext.empty()) ext = "deep";
+    // Сначала сохраняем автоматически в .deep
+    auto macroDir = geode::dirs::getGameDir() / "macros";
+    std::error_code ec;
+    std::filesystem::create_directories(macroDir, ec);
 
-            bot.saveToFile(pathOpt->string(), ext);
-        }
+    auto timestamp = std::to_string(std::time(nullptr));
+    auto autoPath = macroDir / ("macro_" + timestamp + ".deep");
+    bot.saveToFile(autoPath.string(), "deep");
+
+    // Показываем меню выбора формата
+    auto* popup = FLAlertLayer::create(
+        this,
+        "Save Format",
+        "Choose format to save:",
+        ".deep", ".ttr3", ".gdr", ".gdr2", ".slc",
+        300, false, 100, 1.0f
     );
+    popup->show();
+}
+
+void DeepBotUI::onSaveFormat(CCObject*) {
+    // Обработка выбора формата из FLAlertLayer
+    // Это заглушка — FLAlertLayer с множественными кнопками не поддерживает коллбеки на каждую
+    // Делаем через кастомное меню вместо этого
+}
+
+// Переделанный Save через кастомное меню форматов
+// Вместо onSave() выше используем этот подход:
+void DeepBotUI::onSave(CCObject*) {
+    auto& bot = DeepBot::instance();
+    if (bot.getFrameCount() == 0) {
+        updateStatus("Nothing to save!");
+        return;
+    }
+
+    // Автосохранение в /game/macros/
+    auto macroDir = geode::dirs::getGameDir() / "macros";
+    std::error_code ec;
+    std::filesystem::create_directories(macroDir, ec);
+
+    auto timestamp = std::to_string(std::time(nullptr));
+    auto autoPath = macroDir / ("macro_" + timestamp + ".deep");
+    bot.saveToFile(autoPath.string(), "deep");
+
+    // Создаём меню выбора формата
+    auto winSize = CCDirector::sharedDirector()->getWinSize();
+    
+    auto* formatMenu = CCMenu::create();
+    formatMenu->setPosition(winSize.width / 2, winSize.height / 2);
+    formatMenu->setID("deepbot-format-menu");
+
+    auto* bg = CCScale9Sprite::create("GJ_square01.png");
+    bg->setContentSize({ 200, 180 });
+    bg->setPosition(0, 0);
+    formatMenu->addChild(bg, -1);
+
+    auto* title = CCLabelBMFont::create("Save As", "bigFont.fnt");
+    title->setScale(0.35f);
+    title->setPosition(0, 70);
+    formatMenu->addChild(title);
+
+    auto* info = CCLabelBMFont::create("Auto-saved to macros/", "chatFont.fnt");
+    info->setScale(0.25f);
+    info->setPosition(0, 55);
+    formatMenu->addChild(info);
+
+    const char* formats[] = {".deep", ".ttr3", ".gdr", ".gdr2", ".slc", ".xd", ".ybot", ".txt"};
+    float y = 30;
+    for (int i = 0; i < 8; i++) {
+        auto* btn = CCMenuItemSpriteExtra::create(
+            ButtonSprite::create(formats[i], 70, true, "bigFont.fnt", "GJ_button_01.png", 25, 0.45f),
+            this,
+            menu_selector(DeepBotUI::onSaveFormat)
+        );
+        btn->setPosition((i % 2 == 0) ? -50 : 50, y);
+        btn->setTag(i);
+        formatMenu->addChild(btn);
+        if (i % 2 == 1) y -= 25;
+    }
+
+    // Custom format input
+    auto* customBtn = CCMenuItemSpriteExtra::create(
+        ButtonSprite::create("Other...", 100, true, "bigFont.fnt", "GJ_button_04.png", 30, 0.5f),
+        this,
+        menu_selector(DeepBotUI::onSaveCustomFormat)
+    );
+    customBtn->setPosition(0, -65);
+    formatMenu->addChild(customBtn);
+
+    // Close
+    auto* closeBtn = CCMenuItemSpriteExtra::create(
+        CCSprite::createWithSpriteFrameName("GJ_closeBtn_001.png"),
+        this,
+        menu_selector(DeepBotUI::onClose)
+    );
+    closeBtn->setScale(0.5f);
+    closeBtn->setPosition(85, 75);
+    formatMenu->addChild(closeBtn);
+
+    this->addChild(formatMenu, 2000);
+}
+
+void DeepBotUI::onSaveFormat(CCObject* sender) {
+    const char* formats[] = {"deep", "ttr3", "gdr", "gdr2", "slc", "xd", "ybot", "txt"};
+    int idx = sender->getTag();
+    if (idx < 0 || idx > 7) return;
+
+    auto& bot = DeepBot::instance();
+    auto macroDir = geode::dirs::getGameDir() / "macros";
+    auto timestamp = std::to_string(std::time(nullptr));
+    auto path = macroDir / ("macro_" + timestamp + "." + formats[idx]);
+
+    if (bot.saveToFile(path.string(), formats[idx])) {
+        updateStatus("Saved ." + std::string(formats[idx]));
+    } else {
+        updateStatus("Save failed!");
+    }
+
+    // Удаляем меню форматов
+    this->removeChildByID("deepbot-format-menu");
+}
+
+void DeepBotUI::onSaveCustomFormat(CCObject*) {
+    // Показываем input dialog для custom расширения
+    geode::utils::file::pick(file::PickMode::SaveFile, {
+        .defaultPath = "macro",
+        .filters = {
+            { .description = "All files", .files = { "*" }}
+        }
+    }).map([](auto result) {
+        if (result.isErr()) return;
+        auto pathOpt = result.unwrap();
+        if (!pathOpt.has_value()) return;
+
+        auto& bot = DeepBot::instance();
+        std::string ext = pathOpt->extension().string();
+        if (!ext.empty() && ext[0] == '.') ext = ext.substr(1);
+        if (ext.empty()) ext = "deep";
+
+        bot.saveToFile(pathOpt->string(), ext);
+    });
 }
 
 void DeepBotUI::onLoad(CCObject*) {
