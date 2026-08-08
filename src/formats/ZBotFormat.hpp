@@ -7,9 +7,6 @@
 
 namespace deepbot {
 
-// zBot Format (.zbf)
-// Header: "ZBF" + version
-
 class ZBotFormat {
 public:
     static constexpr const char* MAGIC = "ZBF";
@@ -52,14 +49,17 @@ public:
         uint16_t version = reader.readU16();
         replay.fps = reader.readF64();
         uint32_t count = reader.readU32();
+        if (count > 10000000) {
+            throw std::runtime_error("ZBF: suspicious input count");
+        }
         replay.inputs.reserve(count);
-        for (uint32_t i = 0; i < count; i++) {
+        for (uint32_t i = 0; i < count && reader.remaining() >= 7; i++) {
             Input input;
             input.frame = reader.readU32();
             input.down = reader.readU8() != 0;
             input.player2 = reader.readU8() != 0;
             input.button = reader.readU8();
-            DeepParser::normalizeButton(input.button);
+            normalizeButton(input.button);
             replay.inputs.push_back(input);
         }
         return replay;
