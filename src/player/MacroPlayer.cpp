@@ -1,4 +1,6 @@
 #include "MacroPlayer.hpp"
+#include "../DeepBot.hpp"
+#include <Geode/modify/PlayLayer.hpp>
 #include <algorithm>
 
 using namespace geode::prelude;
@@ -67,20 +69,20 @@ void MacroPlayer::advance() {
 class $modify(PlayLayerPlayer, PlayLayer) {
     void update(float dt) {
         PlayLayer::update(dt);
-        auto& player = DeepBot::instance().getPlayer();
+        auto& player = deepbot::DeepBot::instance().getPlayer();
         if (!player.isPlaying()) return;
 
         double levelTime = 0.0;
         #if defined(GEODE_IS_WINDOWS)
             levelTime = this->m_gameState.m_levelTime;
         #else
-            levelTime = CCDirector::get()->getSeconds();
+            levelTime = this->m_gameState.m_levelTime;
         #endif
         player.update(levelTime);
     }
 
     void resetLevel() {
-        auto& player = DeepBot::instance().getPlayer();
+        auto& player = deepbot::DeepBot::instance().getPlayer();
         if (player.isPlaying()) {
             player.stopPlayback();
         }
