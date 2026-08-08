@@ -21,22 +21,21 @@ void InputRecorder::stopRecording() {
 
 void InputRecorder::recordInput(bool down, bool player2, uint8_t button,
     float x, float y, float rot, float yAccel) {
-    
+
     if (!m_recording) return;
-    
-    // Per-button deduplication
+
+    // Per-button deduplication - FIXED: now actually skips duplicates
     auto& lastDown = player2 ? m_lastP2Down : m_lastP1Down;
-    if (button < lastDown.size() && down == lastDown[button] && button == 1) {
-        // Only skip if it's the same button state for button 1
-        // For other buttons, always record to support multi-button
+    if (button < lastDown.size() && down == lastDown[button]) {
+        return;  // ← FIXED: was missing, now skips duplicate
     }
-    
+
     auto* playLayer = PlayLayer::get();
     if (!playLayer) return;
-    
-    // Use level time in seconds instead of progress
+
+    // Use level time in seconds
     double time = playLayer->m_gameState.m_levelTime;
-    
+
     TPSIndependentFrame frame;
     frame.absoluteTime = time;
     frame.down = down;
@@ -47,7 +46,7 @@ void InputRecorder::recordInput(bool down, bool player2, uint8_t button,
     frame.rotation = rot;
     frame.yAccel = yAccel;
     m_frames.push_back(frame);
-    
+
     if (button < lastDown.size()) {
         lastDown[button] = down;
     }
@@ -63,11 +62,11 @@ class $modify(PlayLayerRecorder, PlayLayer) {
         PlayLayer::handleButton(down, button, player2);
         auto& recorder = DeepBot::instance().getRecorder();
         if (!recorder.isRecording()) return;
-        
+
         uint8_t btn = 1;
         if (button == 2) btn = 2;
         if (button == 3) btn = 3;
-        
+
         float x = 0, y = 0, rot = 0, yAccel = 0;
         auto* player = player2 ? m_player2 : m_player1;
         if (player) {
