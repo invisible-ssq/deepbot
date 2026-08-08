@@ -31,11 +31,8 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     src/utils
 )
 
-# Find required dependencies
-find_package(ZLIB REQUIRED)
-find_package(nlohmann_json REQUIRED)
-
-target_link_libraries(${PROJECT_NAME} ZLIB::ZLIB nlohmann_json::nlohmann_json)
+# REMOVED: find_package(ZLIB REQUIRED) - Geode provides this
+# REMOVED: find_package(nlohmann_json REQUIRED) - Geode provides this via CPM
 
 if(ANDROID)
     target_compile_definitions(${PROJECT_NAME} PRIVATE DEEPBOT_ANDROID)
