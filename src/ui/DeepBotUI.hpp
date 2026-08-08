@@ -5,13 +5,14 @@ using namespace geode::prelude;
 
 namespace deepbot {
 
-class DeepBotUI : public geode::Popup<> {
+class DeepBotUI : public FLAlertLayer {
 protected:
-    bool setup() override;
-    void onClose(CCObject*) override;
+    bool init() override;
 
 public:
     static DeepBotUI* create();
+    void show() override;
+    void onClose(CCObject*);
     void updateStatus(const std::string& status);
     void refreshButtons();
 
