@@ -1,4 +1,5 @@
-#include <Geode/Geode.hpp>
+#include <string>
+#include <geode/loader/Mod.hpp>
 #include "DeepBot.hpp"
 #include "ui/DeepBotUI.hpp"
 #include "formats/DeepParser.hpp"
@@ -16,7 +17,8 @@ $execute {
 }
 
 $on_mod(Loaded) {
-    log::info("deepbot v1.0.0 by goodxdeveloper");
-    log::info("Free, closed-source, no watermarks, no subscriptions");
+    auto version = Mod::get()->getVersion().toString();
+    log::info("deepbot {} by goodxdeveloper", version);
+    log::info("Free, no watermarks, no subscriptions");
     log::info("Universal macro bot for Geometry Dash 2.2081");
 }
