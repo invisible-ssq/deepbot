@@ -18,15 +18,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Pre-patch fmt
-        run: |
-          CPM_DIR="$GITHUB_WORKSPACE/cpm-cache/fmt/01ac001d8da09bd242594dc67d36dccb9854883e"
-          mkdir -p "$CPM_DIR/include/fmt"
-          curl -sL "https://raw.githubusercontent.com/fmtlib/fmt/10.1.1/include/fmt/format.h" | sed 's/constexpr auto operator"" _a/constexpr auto operator""_a/g' > "$CPM_DIR/include/fmt/format.h"
-          curl -sL "https://raw.githubusercontent.com/fmtlib/fmt/10.1.1/include/fmt/base.h" | sed 's/#define FMT_CONSTEVAL consteval/#define FMT_CONSTEVAL constexpr/g' > "$CPM_DIR/include/fmt/base.h"
-          curl -sL "https://raw.githubusercontent.com/fmtlib/fmt/10.1.1/include/fmt/core.h" | sed 's/#define FMT_CONSTEVAL consteval/#define FMT_CONSTEVAL constexpr/g' > "$CPM_DIR/include/fmt/core.h"
-          echo "fmt pre-patched"
-
       - name: Build Geode Mod
         uses: geode-sdk/build-geode-mod@main
         with:
