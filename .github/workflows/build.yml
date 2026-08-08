@@ -19,9 +19,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.geode
-          key: geode-sdk-android64-${{ hashFiles('**/CMakeLists.txt') }}
+          key: geode-sdk-android64-v2-${{ hashFiles('**/CMakeLists.txt') }}
           restore-keys: |
-            geode-sdk-android64-
+            geode-sdk-android64-v2-
 
       - name: Setup NDK
         uses: nttld/setup-ndk@v1
@@ -32,27 +32,34 @@ jobs:
       - name: Install Geode CLI
         run: |
           curl -L "https://github.com/geode-sdk/cli/releases/download/v3.8.0/geode-cli-v3.8.0-linux.zip" -o /tmp/geode-cli.zip
-          unzip /tmp/geode-cli.zip -d /tmp/geode-cli
+          unzip -o /tmp/geode-cli.zip -d /tmp/geode-cli
           sudo mv /tmp/geode-cli/geode /usr/local/bin/
           geode --version
 
+      - name: Setup Geode Config
+        run: |
+          mkdir -p ~/.config/geode
+          cat > ~/.config/geode/config.json << 'EOF'
+          {
+            "default-profile": "default",
+            "profiles": {
+              "default": {
+                "sdk-path": "/home/runner/.geode/sdk"
+              }
+            }
+          }
+          EOF
+
       - name: Install SDK & Fix Codegen
         run: |
-          # Setup geode profile
-          mkdir -p ~/.geode
-          echo "default" > ~/.geode/profile
-          # Install SDK to known location
-          export GEODE_SDK=$HOME/.geode/sdk
-          geode sdk install --path $GEODE_SDK
+          geode sdk install
           geode sdk install-binaries
-          # Fix Codegen permissions
-          find $GEODE_SDK -name "Codegen" -type f -exec chmod +x {} \; 2>/dev/null || true
-          find $GEODE_SDK -name "codegen" -type f -exec chmod +x {} \; 2>/dev/null || true
-          ls -la $GEODE_SDK/*/bin/ 2>/dev/null || true
+          find ~/.geode -name "Codegen" -type f -exec chmod +x {} \; 2>/dev/null || true
+          find ~/.geode -name "codegen" -type f -exec chmod +x {} \; 2>/dev/null || true
 
       - name: Configure & Build
         run: |
-          export GEODE_SDK=$HOME/.geode/sdk
+          export GEODE_SDK=/home/runner/.geode/sdk
           cmake -B build \
             -S . \
             -DCMAKE_BUILD_TYPE=Release \
