@@ -1,0 +1,47 @@
+name: Build deepbot
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: ${{ matrix.config.name }}
+    runs-on: ${{ matrix.config.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - name: Windows
+            os: windows-latest
+            target: Win64
+          - name: Android64
+            os: ubuntu-latest
+            target: Android64
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the mod
+        uses: geode-sdk/build-geode-mod@main
+        with:
+          combine: true
+          target: ${{ matrix.config.target }}
+          # Фикс NDK r25c вместо r29
+          ndk-version: r25c
+
+  package:
+    name: Package builds
+    runs-on: ubuntu-latest
+    needs: ['build']
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Combine builds
+        uses: geode-sdk/build-geode-mod/combine@main
+        id: build
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: deepbot_build
+          path: ${{ steps.build.outputs.build-output }}
