@@ -1,7 +1,7 @@
 #include "DeepBotUI.hpp"
 #include "../DeepBot.hpp"
-#include <Geode/modify/PauseLayer.hpp>
-#include <Geode/utils/file.hpp>
+#include <geode/ui/GeodeUI.hpp>
+#include <algorithm>
 
 using namespace geode::prelude;
 
@@ -74,6 +74,10 @@ void DeepBotUI::onStop(CCObject*) {
 
 void DeepBotUI::onPlay(CCObject*) {
     auto& bot = DeepBot::instance();
+    if (bot.isRecording()) {
+        updateStatus("Stop recording first!");
+        return;
+    }
     if (bot.isPlaying()) return;
 
     if (bot.getFrameCount() == 0) {
@@ -89,8 +93,9 @@ void DeepBotUI::onSave(CCObject*) {
     auto result = file::pick(file::PickMode::SaveFile, {
         .filters = {
             { .description = "deepbot / supported macros", .files = {
-                "*.deep", "*.ttr3", "*.gdr", "*.gdr2", "*.slc",
-                "*.xd", "*.ybot", "*.tcm", "*.re", "*.zbf", "*.mhr", "*.echo", "*.txt"
+                "*.deep", "*.ttr3", "*.gdr", "*.gdr2", "*.slc", "*.cml",
+                "*.xd", "*.ybot", "*.ybf", "*.tcm", "*.re", "*.re2", "*.re3", "*.re4",
+                "*.zbf", "*.mhr", "*.echo", "*.txt"
             }}
         }
     });
@@ -101,6 +106,7 @@ void DeepBotUI::onSave(CCObject*) {
     auto& bot = DeepBot::instance();
     std::string ext = path.extension().string();
     if (!ext.empty() && ext[0] == '.') ext = ext.substr(1);
+    std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
 
     if (ext.empty()) {
         ext = "deep";
@@ -131,6 +137,7 @@ void DeepBotUI::onLoad(CCObject*) {
     auto& bot = DeepBot::instance();
     std::string ext = path.extension().string();
     if (!ext.empty() && ext[0] == '.') ext = ext.substr(1);
+    std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
 
     if (bot.loadFromFile(path.string(), ext)) {
         updateStatus("Loaded " + std::to_string(bot.getFrameCount()) + " frames");
@@ -162,6 +169,8 @@ class $modify(PauseLayerDeepBot, PauseLayer) {
     void customSetup() {
         PauseLayer::customSetup();
 
+        if (!Mod::get()->isEnabled()) return;
+        
         auto showButton = Mod::get()->getSettingValue<bool>("show-button");
         if (!showButton) return;
 
