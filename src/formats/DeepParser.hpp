@@ -4,7 +4,7 @@
 #include <algorithm>
 #include <cstring>
 #include <unordered_map>
-#include <nlohmann/json.hpp>
+#include <matjson.hpp>
 #include "FormatRegistry.hpp"
 #include "DeepFormat.hpp"
 #include "TTR3Format.hpp"
@@ -55,8 +55,8 @@ public:
         if (data.size() > 0 && (data[0] == '{' || data[0] == '[')) {
             try {
                 std::string content(data.begin(), data.end());
-                if (nlohmann::json::accept(content)) {
-                    auto j = nlohmann::json::parse(content);
+                if (matjson::Value::fromString(content).isOk()) {
+                    auto j = matjson::Value::fromString(content).unwrap();
                     if (j.contains("framerate")) return "gdr";
                     if (j.contains("fps")) return "mhr";
                 }
@@ -208,8 +208,6 @@ public:
         return {"deep", "ttr3", "gdr", "gdr2", "slc", "xd", "ybot", "ybf",
                 "tcm", "re", "re2", "re3", "re4", "zbf", "mhr", "echo", "txt"};
     }
-
-    // ===== Conversion helpers =====
 
     static UnifiedReplay deepToUnified(const DeepFormat::Replay& replay) {
         UnifiedReplay u;
