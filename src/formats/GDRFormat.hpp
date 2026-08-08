@@ -1,7 +1,7 @@
 #pragma once
 #include <vector>
 #include <string>
-#include <nlohmann/json.hpp>
+#include <matjson.hpp>
 #include "../utils/BinaryReader.hpp"
 
 namespace deepbot {
@@ -41,7 +41,7 @@ public:
     };
 
     static Replay readJSON(const std::string& jsonStr) {
-        auto j = nlohmann::json::parse(jsonStr);
+        auto j = matjson::parse(jsonStr);
         Replay replay;
         replay.author = j.value("author", "");
         replay.description = j.value("description", "");
@@ -84,7 +84,7 @@ public:
     }
 
     static std::string writeJSON(const Replay& replay) {
-        nlohmann::json j;
+        matjson::Value j;
         j["author"] = replay.author;
         j["description"] = replay.description;
         j["duration"] = replay.duration;
@@ -94,16 +94,18 @@ public:
         j["seed"] = replay.seed;
         j["coins"] = replay.coins;
         j["ldm"] = replay.ldm;
-        j["bot"] = {{"name", replay.bot.name}, {"version", replay.bot.version}};
-        j["level"] = {{"id", replay.level.id}, {"name", replay.level.name}};
-        nlohmann::json inputs = nlohmann::json::array();
+        j["bot"] = matjson::Object{{"name", replay.bot.name}, {"version", replay.bot.version}};
+        j["level"] = matjson::Object{{"id", replay.level.id}, {"name", replay.level.name}};
+
+        matjson::Value inputs = matjson::Array();
         for (const auto& input : replay.inputs) {
-            nlohmann::json inp;
+            matjson::Value inp;
             inp["2p"] = input.player2;
             inp["btn"] = input.button;
             inp["down"] = input.down;
             inp["frame"] = input.frame;
-            nlohmann::json corr;
+
+            matjson::Value corr;
             corr["nodeXPos"] = input.correction.nodeXPos;
             corr["nodeYPos"] = input.correction.nodeYPos;
             corr["player2"] = input.correction.player2;
@@ -112,9 +114,11 @@ public:
             corr["yPos"] = input.correction.yPos;
             corr["yVel"] = input.correction.yVel;
             inp["correction"] = corr;
-            inputs.push_back(inp);
+
+            inputs.asArray().push_back(inp);
         }
         j["inputs"] = inputs;
+
         return j.dump(2);
     }
 };

@@ -1,14 +1,10 @@
 #pragma once
 #include <vector>
-#include <cstdint>
 #include <string>
-#include <nlohmann/json.hpp>
+#include <matjson.hpp>
 #include "../utils/BinaryReader.hpp"
 
 namespace deepbot {
-
-// MegaHack Replay Format (.mhr)
-// JSON-based format
 
 class MHRFormat {
 public:
@@ -27,19 +23,19 @@ public:
     };
 
     static std::vector<uint8_t> write(const Replay& replay) {
-        nlohmann::json j;
+        matjson::Value j;
         j["fps"] = replay.fps;
         j["levelName"] = replay.levelName;
         j["levelId"] = replay.levelId;
 
-        nlohmann::json inputs = nlohmann::json::array();
+        matjson::Value inputs = matjson::Array();
         for (const auto& input : replay.inputs) {
-            nlohmann::json inp;
+            matjson::Value inp;
             inp["frame"] = input.frame;
             inp["down"] = input.down;
             inp["player2"] = input.player2;
             inp["button"] = input.button;
-            inputs.push_back(inp);
+            inputs.asArray().push_back(inp);
         }
         j["inputs"] = inputs;
 
@@ -49,7 +45,7 @@ public:
 
     static Replay read(const std::vector<uint8_t>& data) {
         std::string jsonStr(data.begin(), data.end());
-        auto j = nlohmann::json::parse(jsonStr);
+        auto j = matjson::parse(jsonStr);
         Replay replay;
 
         replay.fps = j.value("fps", 240.0);
