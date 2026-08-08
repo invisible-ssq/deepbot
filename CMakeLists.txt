@@ -22,6 +22,14 @@ add_library(${PROJECT_NAME} SHARED ${SOURCES})
 
 target_link_libraries(${PROJECT_NAME} geode-sdk)
 
+find_package(ZLIB)
+if(ZLIB_FOUND)
+    target_link_libraries(${PROJECT_NAME} ZLIB::ZLIB)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE DEEPBOT_HAS_ZLIB)
+else()
+    message(WARNING "ZLIB not found. Compressed formats (XD, TTR3, CML) will not work.")
+endif()
+
 target_include_directories(${PROJECT_NAME} PRIVATE
     src
     src/formats
@@ -42,7 +50,6 @@ else()
 endif()
 
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -DNDEBUG")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Werror=return-type")
 
-# Create geode mod package
 setup_geode_mod(${PROJECT_NAME})
