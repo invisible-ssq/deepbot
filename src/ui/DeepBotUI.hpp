@@ -1,10 +1,12 @@
 #pragma once
 #include <Geode/ui/Popup.hpp>
-#include <cocos2d.h>
+#include <Geode/cocos/include/cocos2d.h>
+
+using namespace geode::prelude;
 
 namespace deepbot {
 
-class DeepBotUI : public geode::Popup<> {
+class DeepBotUI : public Popup<> {
 protected:
     bool setup() override;
 
