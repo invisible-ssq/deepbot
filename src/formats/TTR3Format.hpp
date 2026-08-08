@@ -64,13 +64,12 @@ public:
         writer.writeU32(headerContentSize);
         writer.writeBytes(headerContent.data().data(), headerContent.size());
 
-        // Section table with correct offset
         writer.writeU16(1);
         writer.writeU8(1);
         writer.writeU8(0);
         writer.writeU8(0);
         writer.writeU8(0);
-        writer.writeU64(0); // offset in uncompressed data
+        writer.writeU64(0);
         writer.writeU64(inputsSection.size());
 
         writer.writeVarU64(compressed.size());
@@ -88,8 +87,8 @@ public:
             throw std::runtime_error("Invalid TTR3 magic");
         }
 
-        uint16_t version = reader.readU16();
-        uint16_t reserved = reader.readU16();
+        [[maybe_unused]] uint16_t version = reader.readU16();
+        [[maybe_unused]] uint16_t reserved = reader.readU16();
         uint32_t flags = reader.readU32();
         uint32_t headerLen = reader.readU32();
 
