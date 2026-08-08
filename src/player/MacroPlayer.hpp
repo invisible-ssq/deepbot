@@ -11,7 +11,7 @@ private:
     bool m_playing = false;
     std::vector<TPSIndependentFrame> m_frames;
     size_t m_currentIndex = 0;
-    double m_lastProcessedTime = -1.0;
+    int m_lastProcessedIndex = -1;
 
 public:
     void loadMacro(const std::vector<TPSIndependentFrame>& frames);
