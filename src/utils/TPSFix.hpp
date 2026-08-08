@@ -19,7 +19,7 @@ public:
     }
 
     static double frameToTime(uint32_t frame, double tps) {
-        return frame / tps;
+        return static_cast<double>(frame) / tps;
     }
 
     static std::vector<TPSIndependentFrame> convertTPS(
@@ -27,10 +27,16 @@ public:
         double sourceTPS,
         double targetTPS
     ) {
+        if (sourceTPS == targetTPS) return inputs;
+        
         std::vector<TPSIndependentFrame> result;
         result.reserve(inputs.size());
+        
         for (const auto& input : inputs) {
             auto converted = input;
+            // Convert: frame = time * sourceTPS, newTime = frame / targetTPS
+            uint32_t frame = timeToFrame(input.absoluteTime, sourceTPS);
+            converted.absoluteTime = frameToTime(frame, targetTPS);
             result.push_back(converted);
         }
         return result;
