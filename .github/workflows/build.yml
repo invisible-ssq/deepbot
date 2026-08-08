@@ -31,9 +31,12 @@ jobs:
 
       - name: Install Geode CLI
         run: |
-          # Download latest CLI from GitHub API
-          CLI_URL=$(curl -s https://api.github.com/repos/geode-sdk/cli/releases/latest | grep "browser_download_url.*linux-x64" | cut -d '"' -f 4)
-          curl -L "$CLI_URL" -o /tmp/geode-cli.tar.gz
+          # Hardcoded known-good URL for v3.8.0 linux x64
+          curl -L "https://github.com/geode-sdk/cli/releases/download/v3.8.0/geode-cli-v3.8.0-linux-x64.tar.gz" \
+            -H "Accept: application/octet-stream" \
+            -o /tmp/geode-cli.tar.gz
+          file /tmp/geode-cli.tar.gz
+          tar tzf /tmp/geode-cli.tar.gz | head -5
           tar xzf /tmp/geode-cli.tar.gz -C /tmp
           sudo mv /tmp/geode /usr/local/bin/
           geode --version
@@ -42,15 +45,10 @@ jobs:
         run: |
           geode sdk install
           geode sdk install-binaries
-          # Find and fix Codegen permissions
-          CODEGEN_PATH=$(find ~/.geode -name "Codegen" -type f 2>/dev/null | head -1)
-          if [ -n "$CODEGEN_PATH" ]; then
-            chmod +x "$CODEGEN_PATH"
-            echo "Fixed permissions for: $CODEGEN_PATH"
-          fi
-          # Also fix any codegen in build directory
-          mkdir -p build
-          find build -name "Codegen" -type f -exec chmod +x {} \; 2>/dev/null || true
+          # Fix Codegen permissions BEFORE cmake
+          find ~/.geode -name "Codegen" -type f -exec chmod +x {} \; 2>/dev/null || true
+          find ~/.geode -name "codegen" -type f -exec chmod +x {} \; 2>/dev/null || true
+          ls -la ~/.geode/sdk/*/bin/ 2>/dev/null || true
 
       - name: Configure & Build
         run: |
