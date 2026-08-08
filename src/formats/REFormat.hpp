@@ -8,9 +8,6 @@
 
 namespace deepbot {
 
-// ReplayEngine Format (.re)
-// Versions 1-4 with different structures
-
 class REFormat {
 public:
     struct Input {
@@ -26,13 +23,12 @@ public:
         std::vector<Input> inputs;
     };
 
-    // Detect version from file header
     static int detectVersion(const std::vector<uint8_t>& data) {
         if (data.size() < 4) return 1;
         if (data[0] == 'R' && data[1] == 'E' && data[2] == '4') return 4;
         if (data[0] == 'R' && data[1] == 'E' && data[2] == '3') return 3;
         if (data[0] == 'R' && data[1] == 'E' && data[2] == '2') return 2;
-        return 1; // .re without header
+        return 1;
     }
 
     static std::vector<uint8_t> write(const Replay& replay, int version = 1) {
@@ -46,16 +42,15 @@ public:
         writer.writeF64(replay.fps);
 
         if (version >= 3) {
-            writer.writeU32(0); // seed
-            writer.writeU8(0); // flags
+            writer.writeU32(0);
+            writer.writeU8(0);
         }
 
         if (version >= 4) {
-            writer.writeStringVar(""); // level name
-            writer.writeStringVar(""); // author
+            writer.writeStringVar("");
+            writer.writeStringVar("");
         }
 
-        // Sort and separate P1/P2
         auto sorted = replay.inputs;
         std::sort(sorted.begin(), sorted.end(),
             [](const Input& a, const Input& b) { return a.frame < b.frame; });
@@ -70,11 +65,10 @@ public:
             writer.writeVarU64(p1Inputs.size());
             writer.writeVarU64(p2Inputs.size());
         } else {
-            // RE v1: warn about P2 data loss
+            // RE v1: merge all as P1 (P2 data loss)
             writer.writeU32(static_cast<uint32_t>(p1Inputs.size() + p2Inputs.size()));
         }
 
-        // Write P1 with delta encoding
         uint32_t prevFrame = 0;
         for (const auto& input : p1Inputs) {
             uint32_t delta = input.frame - prevFrame;
@@ -88,7 +82,6 @@ public:
             prevFrame = input.frame;
         }
 
-        // Write P2 with delta encoding
         prevFrame = 0;
         for (const auto& input : p2Inputs) {
             uint32_t delta = input.frame - prevFrame;
@@ -112,19 +105,19 @@ public:
         replay.version = version;
 
         if (version >= 2) {
-            reader.skip(3); // Skip "RE2", "RE3", or "RE4"
+            reader.skip(3);
         }
 
         replay.fps = reader.readF64();
 
         if (version >= 3) {
-            reader.skip(4); // seed
-            reader.skip(1); // flags
+            reader.skip(4);
+            reader.skip(1);
         }
 
         if (version >= 4) {
-            reader.readStringVar(); // level name
-            reader.readStringVar(); // author
+            reader.readStringVar();
+            reader.readStringVar();
         }
 
         uint64_t p1Count = 0, p2Count = 0;
@@ -133,18 +126,12 @@ public:
             p2Count = reader.readVarU64();
         } else {
             uint32_t total = reader.readU32();
-            p1Count = total; // RE v1 doesn't separate P1/P2
+            p1Count = total;
         }
 
-        // Read P1
         uint32_t prevFrame = 0;
-        for (uint64_t i = 0; i < p1Count; i++) {
-            uint64_t packed;
-            if (version >= 3) {
-                packed = reader.readVarU64();
-            } else {
-                packed = reader.readU32();
-            }
+        for (uint64_t i = 0; i < p1Count && reader.remaining() > 0; i++) {
+            uint64_t packed = (version >= 3) ? reader.readVarU64() : reader.readU32();
             uint32_t delta = packed >> (version >= 3 ? 2 : 1);
             bool down = (packed & 1) != 0;
             uint8_t button = 1;
@@ -158,15 +145,9 @@ public:
             replay.inputs.push_back(input);
         }
 
-        // Read P2
         prevFrame = 0;
-        for (uint64_t i = 0; i < p2Count; i++) {
-            uint64_t packed;
-            if (version >= 3) {
-                packed = reader.readVarU64();
-            } else {
-                packed = reader.readU32();
-            }
+        for (uint64_t i = 0; i < p2Count && reader.remaining() > 0; i++) {
+            uint64_t packed = (version >= 3) ? reader.readVarU64() : reader.readU32();
             uint32_t delta = packed >> (version >= 3 ? 2 : 1);
             bool down = (packed & 1) != 0;
             uint8_t button = 1;
