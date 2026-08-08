@@ -33,19 +33,12 @@ jobs:
           restore-keys: |
             geode-sdk-${{ matrix.config.target }}-
 
-      - name: Fix permissions (Unix)
-        if: runner.os != 'Windows'
-        run: |
-          mkdir -p $HOME/.cache
-          chmod -R 755 $HOME/.geode 2>/dev/null || true
-
       - name: Build the mod
-        uses: geode-sdk/build-geode-mod@main
+        uses: geode-sdk/build-geode-mod@v1
         with:
           combine: true
           target: ${{ matrix.config.target }}
           sdk: 5.8.2
-          cmake-args: "-DGEODE_DISABLE_PCH=ON"
 
   package:
     name: Package builds
@@ -55,7 +48,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Combine builds
-        uses: geode-sdk/build-geode-mod/combine@main
+        uses: geode-sdk/build-geode-mod/combine@v1
         id: build
 
       - name: Upload artifact
