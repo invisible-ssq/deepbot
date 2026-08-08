@@ -36,13 +36,12 @@ public:
         BinaryWriter inputsData;
         inputsData.writeU32(static_cast<uint32_t>(replay.inputs.size()));
         for (const auto& input : replay.inputs) {
-            // FIXED: use bit 2 for player2 instead of bit 31 (sign bit)
             if (input.frame > 0x1FFFFFFF) {
                 throw std::runtime_error("XD format: frame number too large (max 536,870,911)");
             }
             uint32_t packed = ((input.frame & 0x1FFFFFFF) << 3)
                 | ((input.button & 3) << 1)
-                | (input.player2 ? 4 : 0)   // bit 2 for player2
+                | (input.player2 ? 4 : 0)
                 | (input.down ? 1 : 0);
             inputsData.writeU32(packed);
         }
@@ -103,10 +102,10 @@ public:
             uint32_t packed = inputsReader.readU32();
             Input input;
             input.frame = (packed >> 3) & 0x1FFFFFFF;
-            input.player2 = (packed & 4) != 0;   // bit 2
+            input.player2 = (packed & 4) != 0;
             input.down = (packed & 1) != 0;
             input.button = (packed >> 1) & 3;
-            DeepParser::normalizeButton(input.button);
+            normalizeButton(input.button);
             replay.inputs.push_back(input);
         }
 
