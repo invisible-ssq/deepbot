@@ -8,7 +8,7 @@ using namespace geode::prelude;
 namespace deepbot {
 
 static double getDefaultTPS() {
-    return static_cast<double>(Mod::get()->getSettingValue("default-tps"));
+    return Mod::get()->getSettingValue<double>("default-tps");
 }
 
 void DeepBot::startRecording() {
