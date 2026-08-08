@@ -1,6 +1,6 @@
 #pragma once
-#include <Geode/Geode.hpp>
-#include <Geode/ui/GeodeUI.hpp>
+#include <geode/ui/Popup.hpp>
+#include <cocos2d.h>
 
 namespace deepbot {
 
