@@ -1,5 +1,7 @@
 #include "DeepBotUI.hpp"
 #include "../DeepBot.hpp"
+#include <Geode/modify/MenuLayer.hpp>
+#include <Geode/modify/PauseLayer.hpp>
 #include <algorithm>
 
 using namespace geode::prelude;
@@ -33,7 +35,10 @@ public:
         label->setPosition(bg->getContentSize() / 2);
         bg->addChild(label);
 
-        if (!CCMenuItemSpriteExtra::init(bg, this, menu_selector(DeepBotButton::onClick))) {
+        auto* selectedBg = CCSprite::create("GJ_button_02.png");
+        if (!selectedBg) selectedBg = bg;
+
+        if (!CCMenuItemSpriteExtra::init(bg, selectedBg, this, menu_selector(DeepBotButton::onClick))) {
             return false;
         }
 
@@ -67,7 +72,7 @@ public:
         }
     }
 
-    bool ccTouchBegan(CCTouch* touch, CCEvent*) override {
+    bool ccTouchBegan(CCTouch* touch, CCEvent*) {
         if (!isVisible() || !m_bEnabled) return false;
         
         auto pos = convertToNodeSpace(touch->getLocation());
@@ -83,7 +88,7 @@ public:
         return false;
     }
 
-    void ccTouchMoved(CCTouch* touch, CCEvent*) override {
+    void ccTouchMoved(CCTouch* touch, CCEvent*) {
         auto delta = ccpSub(touch->getLocation(), m_dragStartTouch);
         if (ccpLength(delta) > 10) {
             m_dragging = true;
@@ -99,7 +104,7 @@ public:
         }
     }
 
-    void ccTouchEnded(CCTouch*, CCEvent*) override {
+    void ccTouchEnded(CCTouch*, CCEvent*) {
         unselected();
         if (!m_dragging) {
             activate();
@@ -107,7 +112,7 @@ public:
         m_dragging = false;
     }
 
-    void ccTouchCancelled(CCTouch*, CCEvent*) override {
+    void ccTouchCancelled(CCTouch*, CCEvent*) {
         unselected();
         m_dragging = false;
     }
@@ -246,7 +251,8 @@ void DeepBotUI::onPlay(CCObject*) {
 }
 
 void DeepBotUI::onSave(CCObject*) {
-    file::pick(file::PickMode::SaveFile, {
+    auto result = file::pick(file::PickMode::SaveFile, {
+        .defaultPath = "",
         .filters = {
             { .description = "deepbot / supported macros", .files = {
                 "*.deep", "*.ttr3", "*.gdr", "*.gdr2", "*.slc", "*.cml",
@@ -254,30 +260,29 @@ void DeepBotUI::onSave(CCObject*) {
                 "*.zbf", "*.mhr", "*.echo", "*.txt"
             }}
         }
-    }).listen([](Result<std::optional<std::filesystem::path>> result) {
-        if (result.isErr()) return;
-        auto path = result.unwrap();
-        if (!path.has_value()) return;
-
-        auto& bot = DeepBot::instance();
-        std::string ext = path->extension().string();
-        if (!ext.empty() && ext[0] == '.') ext = ext.substr(1);
-        std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
-
-        if (ext.empty()) {
-            ext = "deep";
-            auto newPath = path->parent_path() / (path->stem().string() + ".deep");
-            if (bot.saveToFile(newPath.string(), ext)) {
-                // saved
-            }
-        } else {
-            bot.saveToFile(path->string(), ext);
-        }
     });
+
+    if (result.isErr()) return;
+    auto path = result.unwrap();
+    if (!path.has_value()) return;
+
+    auto& bot = DeepBot::instance();
+    std::string ext = path->extension().string();
+    if (!ext.empty() && ext[0] == '.') ext = ext.substr(1);
+    std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+
+    if (ext.empty()) {
+        ext = "deep";
+        auto newPath = path->parent_path() / (path->stem().string() + ".deep");
+        bot.saveToFile(newPath.string(), ext);
+    } else {
+        bot.saveToFile(path->string(), ext);
+    }
 }
 
 void DeepBotUI::onLoad(CCObject*) {
-    file::pick(file::PickMode::OpenFile, {
+    auto result = file::pick(file::PickMode::OpenFile, {
+        .defaultPath = "",
         .filters = {
             { .description = "Macro files", .files = {
                 "*.deep", "*.ttr3", "*.gdr", "*.gdr2", "*.slc", "*.cml",
@@ -285,18 +290,18 @@ void DeepBotUI::onLoad(CCObject*) {
                 "*.zbf", "*.mhr", "*.echo", "*.txt"
             }}
         }
-    }).listen([](Result<std::optional<std::filesystem::path>> result) {
-        if (result.isErr()) return;
-        auto path = result.unwrap();
-        if (!path.has_value()) return;
-
-        auto& bot = DeepBot::instance();
-        std::string ext = path->extension().string();
-        if (!ext.empty() && ext[0] == '.') ext = ext.substr(1);
-        std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
-
-        bot.loadFromFile(path->string(), ext);
     });
+
+    if (result.isErr()) return;
+    auto path = result.unwrap();
+    if (!path.has_value()) return;
+
+    auto& bot = DeepBot::instance();
+    std::string ext = path->extension().string();
+    if (!ext.empty() && ext[0] == '.') ext = ext.substr(1);
+    std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+
+    bot.loadFromFile(path->string(), ext);
 }
 
 void DeepBotUI::onConvert(CCObject*) {
