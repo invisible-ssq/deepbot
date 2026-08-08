@@ -46,7 +46,7 @@ public:
         if (std::memcmp(magic.data(), MAGIC, 3) != 0) {
             throw std::runtime_error("Invalid ZBF magic");
         }
-        uint16_t version = reader.readU16();
+        [[maybe_unused]] uint16_t version = reader.readU16();
         replay.fps = reader.readF64();
         uint32_t count = reader.readU32();
         if (count > 10000000) {
