@@ -1,14 +1,14 @@
 #include "DeepBot.hpp"
 #include "formats/DeepParser.hpp"
-#include <Geode/Geode.hpp>
 #include <fstream>
+#include <sstream>
 
 using namespace geode::prelude;
 
 namespace deepbot {
 
 static double getDefaultTPS() {
-    return static_cast<double>(Mod::get()->getSettingValue<int64_t>("default-tps"));
+    return static_cast<double>(Mod::get()->getSettingValue<double>("default-tps"));
 }
 
 void DeepBot::startRecording() {
@@ -16,7 +16,12 @@ void DeepBot::startRecording() {
     if (!playLayer) return;
 
     double tps = getDefaultTPS();
-    m_recorder.startRecording(tps, playLayer->m_gameState.m_unkRandSeed);
+    uint32_t seed = 0;
+    // Try to get seed from game state, fallback to 0
+    auto& gameState = playLayer->m_gameState;
+    seed = gameState.m_unkRandSeed;
+    
+    m_recorder.startRecording(tps, seed);
     m_currentMacro.clear();
 }
 
@@ -28,7 +33,7 @@ void DeepBot::stopRecording() {
 void DeepBot::startPlayback() {
     if (m_currentMacro.empty()) return;
     m_player.loadMacro(m_currentMacro);
-    m_player.startPlayback(getDefaultTPS());
+    m_player.startPlayback();
 }
 
 void DeepBot::stopPlayback() {
@@ -39,10 +44,13 @@ bool DeepBot::saveToFile(const std::string& path, const std::string& format) {
     try {
         auto unified = toUnified();
         auto data = DeepParser::serialize(unified, format);
+        
         std::ofstream file(path, std::ios::binary);
         if (!file) return false;
+        
         file.write(reinterpret_cast<const char*>(data.data()), static_cast<std::streamsize>(data.size()));
-        return true;
+        file.flush();
+        return file.good();
     } catch (const std::exception& e) {
         log::error("deepbot save failed: {}", e.what());
         return false;
@@ -50,13 +58,14 @@ bool DeepBot::saveToFile(const std::string& path, const std::string& format) {
 }
 
 bool DeepBot::loadFromFile(const std::string& path, const std::string& format) {
-    std::ifstream file(path, std::ios::binary);
+    std::ifstream file(path, std::ios::binary | std::ios::ate);
     if (!file) return false;
 
-    std::vector<uint8_t> data(
-        (std::istreambuf_iterator<char>(file)),
-        std::istreambuf_iterator<char>()
-    );
+    auto size = file.tellg();
+    file.seekg(0, std::ios::beg);
+    
+    std::vector<uint8_t> data(static_cast<size_t>(size));
+    if (!file.read(reinterpret_cast<char*>(data.data()), size)) return false;
 
     try {
         auto unified = DeepParser::parseFormat(format, data);
@@ -69,9 +78,16 @@ bool DeepBot::loadFromFile(const std::string& path, const std::string& format) {
 }
 
 bool DeepBot::convertFormat(const std::string& srcPath, const std::string& srcFormat,
-                            const std::string& dstPath, const std::string& dstFormat) {
-    if (!loadFromFile(srcPath, srcFormat)) return false;
-    return saveToFile(dstPath, dstFormat);
+    const std::string& dstPath, const std::string& dstFormat) {
+    
+    auto oldMacro = m_currentMacro; // backup
+    if (!loadFromFile(srcPath, srcFormat)) {
+        m_currentMacro = oldMacro; // restore
+        return false;
+    }
+    bool ok = saveToFile(dstPath, dstFormat);
+    if (!ok) m_currentMacro = oldMacro; // restore on failure
+    return ok;
 }
 
 double DeepBot::getDuration() const {
