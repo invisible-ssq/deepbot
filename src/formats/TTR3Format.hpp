@@ -1,12 +1,15 @@
 #pragma once
 #include <vector>
-#include <cstdint>
 #include <string>
+#include <cstring>
 #include <zlib.h>
 #include "../utils/BinaryReader.hpp"
 #include "../utils/BinaryWriter.hpp"
 
 namespace deepbot {
+
+// ToastyReplay 3 Format (.ttr3)
+// Compressed binary format with sections
 
 class TTR3Format {
 public:
@@ -22,7 +25,6 @@ public:
 
     struct Replay {
         double fps = 240.0;
-        double duration = 0.0;
         std::vector<Input> inputs;
     };
 
@@ -68,7 +70,7 @@ public:
         uLongf compressedSize = compressBound(inputsSection.size());
         std::vector<uint8_t> compressed(compressedSize);
         compress2(compressed.data(), &compressedSize,
-                  inputsSection.data().data(), inputsSection.size(), Z_DEFAULT_COMPRESSION);
+            inputsSection.data().data(), inputsSection.size(), Z_DEFAULT_COMPRESSION);
         compressed.resize(compressedSize);
         writer.writeBytes(compressed.data(), compressed.size());
         return writer.intoVec();
@@ -111,6 +113,7 @@ public:
                 sections.back().offset + sections.back().size;
             decoded.resize(uncompressedSize);
             uncompress(decoded.data(), &uncompressedSize, payload.data(), payload.size());
+            decoded.resize(uncompressedSize);
         } else {
             decoded = payload;
         }
