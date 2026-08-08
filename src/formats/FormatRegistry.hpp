@@ -61,4 +61,8 @@ public:
     }
 };
 
+inline void normalizeButton(uint8_t& button) {
+    if (button == 0) button = 1;
+}
+
 } // namespace deepbot
