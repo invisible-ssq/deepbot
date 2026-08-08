@@ -33,12 +33,19 @@ jobs:
           restore-keys: |
             geode-sdk-${{ matrix.config.target }}-
 
+      - name: Fix permissions (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          mkdir -p $HOME/.cache
+          chmod -R 755 $HOME/.geode 2>/dev/null || true
+
       - name: Build the mod
         uses: geode-sdk/build-geode-mod@main
         with:
           combine: true
           target: ${{ matrix.config.target }}
           sdk: 5.8.2
+          cmake-args: "-DGEODE_DISABLE_PCH=ON"
 
   package:
     name: Package builds
