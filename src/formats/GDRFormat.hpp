@@ -41,11 +41,12 @@ public:
     };
 
     static Replay readJSON(const std::string& jsonStr) {
-        auto val = matjson::Value::fromString(jsonStr).unwrapOr(matjson::Value());
+        auto parseResult = matjson::parse(jsonStr);
+        auto val = parseResult.isOk() ? parseResult.unwrap() : matjson::Value();
         Replay replay;
         replay.author = val["author"].asString().unwrapOr("");
         replay.description = val["description"].asString().unwrapOr("");
-        replay.duration = val["duration"].asDouble().unwrapOr(0.0f);
+        replay.duration = static_cast<float>(val["duration"].asDouble().unwrapOr(0.0));
         replay.gameVersion = static_cast<float>(val["gameVersion"].asDouble().unwrapOr(0.0));
         replay.version = static_cast<float>(val["version"].asDouble().unwrapOr(1.0));
         replay.framerate = static_cast<float>(val["framerate"].asDouble().unwrapOr(240.0));
