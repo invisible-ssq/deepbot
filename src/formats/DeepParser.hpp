@@ -1,10 +1,9 @@
 #pragma once
-#include <string>
+#include <Geode/Geode.hpp>
 #include <vector>
+#include <string>
 #include <algorithm>
 #include <cstring>
-#include <unordered_map>
-#include <matjson.hpp>
 #include "FormatRegistry.hpp"
 #include "DeepFormat.hpp"
 #include "TTR3Format.hpp"
@@ -75,130 +74,138 @@ public:
         return "";
     }
 
-    static UnifiedReplay parseFormat(const std::string& format, const std::vector<uint8_t>& data) {
+    static geode::Result<UnifiedReplay> parseFormat(const std::string& format, const std::vector<uint8_t>& data) {
         std::string fmt = format;
         std::transform(fmt.begin(), fmt.end(), fmt.begin(), ::tolower);
 
-        if (fmt == "deep") {
-            auto replay = DeepFormat::read(data);
-            return deepToUnified(replay);
-        }
-        if (fmt == "ttr3") {
-            auto replay = TTR3Format::read(data);
-            return ttr3ToUnified(replay);
-        }
-        if (fmt == "gdr") {
-            std::string jsonStr(data.begin(), data.end());
-            auto replay = GDRFormat::readJSON(jsonStr);
-            return gdrToUnified(replay);
-        }
-        if (fmt == "gdr2") {
-            auto replay = GDR2Format::read(data);
-            return gdr2ToUnified(replay);
-        }
-        if (fmt == "slc") {
-            auto replay = SLCFormat::read(data);
-            return slcToUnified(replay);
-        }
-        if (fmt == "xd") {
-            auto replay = XDFormat::read(data);
-            return xdToUnified(replay);
-        }
-        if (fmt == "ybot" || fmt == "ybf") {
-            auto replay = YBotFormat::read(data);
-            return ybotToUnified(replay);
-        }
-        if (fmt == "tcm") {
-            auto replay = TCMFormat::read(data);
-            return tcmToUnified(replay);
-        }
-        if (fmt == "re" || fmt == "re2" || fmt == "re3" || fmt == "re4") {
-            auto replay = REFormat::read(data);
-            return reToUnified(replay);
-        }
-        if (fmt == "zbf") {
-            auto replay = ZBotFormat::read(data);
-            return zbfToUnified(replay);
-        }
-        if (fmt == "mhr") {
-            auto replay = MHRFormat::read(data);
-            return mhrToUnified(replay);
-        }
-        if (fmt == "echo") {
-            auto replay = EchoFormat::read(data);
-            return echoToUnified(replay);
-        }
-        if (fmt == "txt") {
-            auto replay = PlaintextFormat::read(data);
-            return txtToUnified(replay);
+        try {
+            if (fmt == "deep") {
+                auto replay = DeepFormat::read(data);
+                return geode::Ok(deepToUnified(replay));
+            }
+            if (fmt == "ttr3") {
+                auto replay = TTR3Format::read(data);
+                return geode::Ok(ttr3ToUnified(replay));
+            }
+            if (fmt == "gdr") {
+                std::string jsonStr(data.begin(), data.end());
+                auto replay = GDRFormat::readJSON(jsonStr);
+                return geode::Ok(gdrToUnified(replay));
+            }
+            if (fmt == "gdr2") {
+                auto replay = GDR2Format::read(data);
+                return geode::Ok(gdr2ToUnified(replay));
+            }
+            if (fmt == "slc") {
+                auto replay = SLCFormat::read(data);
+                return geode::Ok(slcToUnified(replay));
+            }
+            if (fmt == "xd") {
+                auto replay = XDFormat::read(data);
+                return geode::Ok(xdToUnified(replay));
+            }
+            if (fmt == "ybot" || fmt == "ybf") {
+                auto replay = YBotFormat::read(data);
+                return geode::Ok(ybotToUnified(replay));
+            }
+            if (fmt == "tcm") {
+                auto replay = TCMFormat::read(data);
+                return geode::Ok(tcmToUnified(replay));
+            }
+            if (fmt == "re" || fmt == "re2" || fmt == "re3" || fmt == "re4") {
+                auto replay = REFormat::read(data);
+                return geode::Ok(reToUnified(replay));
+            }
+            if (fmt == "zbf") {
+                auto replay = ZBotFormat::read(data);
+                return geode::Ok(zbfToUnified(replay));
+            }
+            if (fmt == "mhr") {
+                auto replay = MHRFormat::read(data);
+                return geode::Ok(mhrToUnified(replay));
+            }
+            if (fmt == "echo") {
+                auto replay = EchoFormat::read(data);
+                return geode::Ok(echoToUnified(replay));
+            }
+            if (fmt == "txt") {
+                auto replay = PlaintextFormat::read(data);
+                return geode::Ok(txtToUnified(replay));
+            }
+        } catch (const std::exception& e) {
+            return geode::Err("Parse error: " + std::string(e.what()));
         }
 
-        throw std::runtime_error("Unsupported format: " + format);
+        return geode::Err("Unsupported format: " + format);
     }
 
-    static std::vector<uint8_t> serialize(const UnifiedReplay& replay, const std::string& format) {
+    static geode::Result<std::vector<uint8_t>> serialize(const UnifiedReplay& replay, const std::string& format) {
         std::string fmt = format;
         std::transform(fmt.begin(), fmt.end(), fmt.begin(), ::tolower);
 
-        if (fmt == "deep") {
-            auto deep = unifiedToDeep(replay);
-            return DeepFormat::write(deep);
-        }
-        if (fmt == "ttr3") {
-            auto ttr3 = unifiedToTTR3(replay);
-            return TTR3Format::write(ttr3);
-        }
-        if (fmt == "gdr") {
-            auto gdr = unifiedToGDR(replay);
-            auto json = GDRFormat::writeJSON(gdr);
-            return std::vector<uint8_t>(json.begin(), json.end());
-        }
-        if (fmt == "gdr2") {
-            auto gdr2 = unifiedToGDR2(replay);
-            return GDR2Format::write(gdr2);
-        }
-        if (fmt == "slc") {
-            auto slc = unifiedToSLC(replay);
-            return SLCFormat::write(slc);
-        }
-        if (fmt == "xd") {
-            auto xd = unifiedToXD(replay);
-            return XDFormat::write(xd);
-        }
-        if (fmt == "ybot") {
-            auto ybot = unifiedToYBot(replay);
-            return YBotFormat::write(ybot);
-        }
-        if (fmt == "tcm") {
-            auto tcm = unifiedToTCM(replay);
-            return TCMFormat::write(tcm);
-        }
-        if (fmt == "re" || fmt == "re2" || fmt == "re3" || fmt == "re4") {
-            int version = 1;
-            if (fmt == "re2") version = 2;
-            else if (fmt == "re3") version = 3;
-            else if (fmt == "re4") version = 4;
-            auto re = unifiedToRE(replay, version);
-            return REFormat::write(re, version);
-        }
-        if (fmt == "zbf") {
-            auto zbf = unifiedToZBF(replay);
-            return ZBotFormat::write(zbf);
-        }
-        if (fmt == "mhr") {
-            auto mhr = unifiedToMHR(replay);
-            return MHRFormat::write(mhr);
-        }
-        if (fmt == "echo") {
-            auto echo = unifiedToEcho(replay);
-            return EchoFormat::write(echo);
-        }
-        if (fmt == "txt") {
-            auto txt = unifiedToTxt(replay);
-            return PlaintextFormat::write(txt);
+        try {
+            if (fmt == "deep") {
+                auto deep = unifiedToDeep(replay);
+                return geode::Ok(DeepFormat::write(deep));
+            }
+            if (fmt == "ttr3") {
+                auto ttr3 = unifiedToTTR3(replay);
+                return geode::Ok(TTR3Format::write(ttr3));
+            }
+            if (fmt == "gdr") {
+                auto gdr = unifiedToGDR(replay);
+                auto json = GDRFormat::writeJSON(gdr);
+                return geode::Ok(std::vector<uint8_t>(json.begin(), json.end()));
+            }
+            if (fmt == "gdr2") {
+                auto gdr2 = unifiedToGDR2(replay);
+                return geode::Ok(GDR2Format::write(gdr2));
+            }
+            if (fmt == "slc") {
+                auto slc = unifiedToSLC(replay);
+                return geode::Ok(SLCFormat::write(slc));
+            }
+            if (fmt == "xd") {
+                auto xd = unifiedToXD(replay);
+                return geode::Ok(XDFormat::write(xd));
+            }
+            if (fmt == "ybot") {
+                auto ybot = unifiedToYBot(replay);
+                return geode::Ok(YBotFormat::write(ybot));
+            }
+            if (fmt == "tcm") {
+                auto tcm = unifiedToTCM(replay);
+                return geode::Ok(TCMFormat::write(tcm));
+            }
+            if (fmt == "re" || fmt == "re2" || fmt == "re3" || fmt == "re4") {
+                int version = 1;
+                if (fmt == "re2") version = 2;
+                else if (fmt == "re3") version = 3;
+                else if (fmt == "re4") version = 4;
+                auto re = unifiedToRE(replay, version);
+                return geode::Ok(REFormat::write(re, version));
+            }
+            if (fmt == "zbf") {
+                auto zbf = unifiedToZBF(replay);
+                return geode::Ok(ZBotFormat::write(zbf));
+            }
+            if (fmt == "mhr") {
+                auto mhr = unifiedToMHR(replay);
+                return geode::Ok(MHRFormat::write(mhr));
+            }
+            if (fmt == "echo") {
+                auto echo = unifiedToEcho(replay);
+                return geode::Ok(EchoFormat::write(echo));
+            }
+            if (fmt == "txt") {
+                auto txt = unifiedToTxt(replay);
+                return geode::Ok(PlaintextFormat::write(txt));
+            }
+        } catch (const std::exception& e) {
+            return geode::Err("Serialize error: " + std::string(e.what()));
         }
 
-        throw std::runtime_error("Unsupported format for serialization: " + format);
+        return geode::Err("Unsupported format for serialization: " + format);
     }
 
     static std::vector<std::string> getSupportedFormats() {
@@ -206,6 +213,7 @@ public:
                 "tcm", "re", "re2", "re3", "re4", "zbf", "mhr", "echo", "txt"};
     }
 
+    // ... (все toUnified/unifiedTo методы без изменений)
     static UnifiedReplay deepToUnified(const DeepFormat::Replay& replay) {
         UnifiedReplay u;
         u.author = replay.author;
@@ -298,11 +306,11 @@ public:
         GDRFormat::Replay g;
         g.author = replay.author;
         g.description = replay.description;
-        g.framerate = static_cast<float>(replay.tps);
+        g.framerate = static_cast<int>(replay.tps);
         g.seed = replay.seed;
         for (const auto& inp : replay.inputs) {
             GDRFormat::Input gi;
-            gi.frame = static_cast<uint32_t>(inp.absoluteTime * replay.tps);
+            gi.frame = static_cast<int>(inp.absoluteTime * replay.tps);
             gi.down = inp.down;
             gi.player2 = inp.player2;
             gi.button = inp.button;
@@ -342,7 +350,7 @@ public:
         g.seed = replay.seed;
         for (const auto& inp : replay.inputs) {
             GDR2Format::Input gi;
-            gi.frame = static_cast<uint64_t>(inp.absoluteTime * replay.tps);
+            gi.frame = static_cast<int>(inp.absoluteTime * replay.tps);
             gi.down = inp.down;
             gi.player2 = inp.player2;
             gi.button = inp.button;
@@ -373,7 +381,7 @@ public:
         s.seed = replay.seed;
         for (const auto& inp : replay.inputs) {
             SLCFormat::Input si;
-            si.frame = static_cast<uint32_t>(inp.absoluteTime * replay.tps);
+            si.frame = static_cast<int>(inp.absoluteTime * replay.tps);
             si.down = inp.down;
             si.player2 = inp.player2;
             si.button = inp.button;
@@ -402,7 +410,7 @@ public:
         x.fps = replay.tps;
         for (const auto& inp : replay.inputs) {
             XDFormat::Input xi;
-            xi.frame = static_cast<uint32_t>(inp.absoluteTime * replay.tps);
+            xi.frame = static_cast<int>(inp.absoluteTime * replay.tps);
             xi.down = inp.down;
             xi.player2 = inp.player2;
             xi.button = inp.button;
@@ -431,7 +439,7 @@ public:
         y.fps = replay.tps;
         for (const auto& inp : replay.inputs) {
             YBotFormat::Input yi;
-            yi.frame = static_cast<uint64_t>(inp.absoluteTime * replay.tps);
+            yi.frame = static_cast<int>(inp.absoluteTime * replay.tps);
             yi.down = inp.down;
             yi.player2 = inp.player2;
             yi.button = inp.button;
@@ -460,7 +468,7 @@ public:
         t.fps = replay.tps;
         for (const auto& inp : replay.inputs) {
             TCMFormat::Input ti;
-            ti.frame = static_cast<uint32_t>(inp.absoluteTime * replay.tps);
+            ti.frame = static_cast<int>(inp.absoluteTime * replay.tps);
             ti.down = inp.down;
             ti.player2 = inp.player2;
             ti.button = inp.button;
@@ -490,7 +498,7 @@ public:
         r.version = version;
         for (const auto& inp : replay.inputs) {
             REFormat::Input ri;
-            ri.frame = static_cast<uint32_t>(inp.absoluteTime * replay.tps);
+            ri.frame = static_cast<int>(inp.absoluteTime * replay.tps);
             ri.down = inp.down;
             ri.player2 = inp.player2;
             ri.button = inp.button;
@@ -519,7 +527,7 @@ public:
         z.fps = replay.tps;
         for (const auto& inp : replay.inputs) {
             ZBotFormat::Input zi;
-            zi.frame = static_cast<uint32_t>(inp.absoluteTime * replay.tps);
+            zi.frame = static_cast<int>(inp.absoluteTime * replay.tps);
             zi.down = inp.down;
             zi.player2 = inp.player2;
             zi.button = inp.button;
@@ -550,7 +558,7 @@ public:
         m.levelId = 0;
         for (const auto& inp : replay.inputs) {
             MHRFormat::Input mi;
-            mi.frame = static_cast<uint32_t>(inp.absoluteTime * replay.tps);
+            mi.frame = static_cast<int>(inp.absoluteTime * replay.tps);
             mi.down = inp.down;
             mi.player2 = inp.player2;
             mi.button = inp.button;
@@ -579,7 +587,7 @@ public:
         e.fps = replay.tps;
         for (const auto& inp : replay.inputs) {
             EchoFormat::Input ei;
-            ei.frame = static_cast<uint64_t>(inp.absoluteTime * replay.tps);
+            ei.frame = static_cast<int>(inp.absoluteTime * replay.tps);
             ei.down = inp.down;
             ei.player2 = inp.player2;
             ei.button = inp.button;
@@ -608,7 +616,7 @@ public:
         t.fps = replay.tps;
         for (const auto& inp : replay.inputs) {
             PlaintextFormat::Input ti;
-            ti.frame = static_cast<uint32_t>(inp.absoluteTime * replay.tps);
+            ti.frame = static_cast<int>(inp.absoluteTime * replay.tps);
             ti.down = inp.down;
             ti.player2 = inp.player2;
             ti.button = inp.button;
