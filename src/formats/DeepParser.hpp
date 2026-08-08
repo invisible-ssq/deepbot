@@ -1,8 +1,8 @@
 #pragma once
 #include <string>
 #include <vector>
-#include <memory>
-#include <functional>
+#include <algorithm>
+#include <cstring>
 #include "FormatRegistry.hpp"
 #include "DeepFormat.hpp"
 #include "TTR3Format.hpp"
@@ -23,6 +23,11 @@ namespace deepbot {
 // Universal format converter
 class DeepParser {
 public:
+    // Normalize button (ensure it's never 0)
+    static void normalizeButton(uint8_t& button) {
+        if (button == 0) button = 1;
+    }
+
     // Format detection by file extension and content
     static std::string detectFormat(const std::string& path, const std::vector<uint8_t>& data) {
         std::string ext = path.substr(path.find_last_of(".") + 1);
@@ -34,7 +39,7 @@ public:
             if (std::memcmp(data.data(), "TTR3", 4) == 0) return "ttr3";
             if (std::memcmp(data.data(), "GDR", 3) == 0) {
                 if (data.size() > 3 && data[3] >= '0' && data[3] <= '9') return "gdr2";
-                return "gdr2";
+                return "gdr"; // FIXED: was "gdr2"
             }
             if (std::memcmp(data.data(), "YBOT", 4) == 0) return "ybot";
             if (std::memcmp(data.data(), "ZBF", 3) == 0) return "zbf";
@@ -44,14 +49,19 @@ public:
             if (std::memcmp(data.data(), "RE3", 3) == 0) return "re3";
             if (std::memcmp(data.data(), "RE4", 3) == 0) return "re4";
             if (std::memcmp(data.data(), "SILL", 4) == 0) return "slc";
-            if (std::memcmp(data.data(), "SLC3RPLY", 8) == 0) return "slc";
+            if (data.size() >= 8 && std::memcmp(data.data(), "SLC3RPLY", 8) == 0) return "slc";
         }
 
-        // Check for JSON formats
+        // Check for JSON formats using proper JSON validation
         if (data.size() > 0 && (data[0] == '{' || data[0] == '[')) {
-            std::string content(data.begin(), std::min(data.begin() + 100, data.end()));
-            if (content.find(""framerate"") != std::string::npos) return "gdr";
-            if (content.find(""fps"") != std::string::npos) return "mhr";
+            try {
+                std::string content(data.begin(), data.end());
+                auto j = nlohmann::json::parse(content);
+                if (j.contains("framerate")) return "gdr";
+                if (j.contains("fps")) return "mhr";
+            } catch (...) {
+                // Not valid JSON, fall through
+            }
         }
 
         // Check for text format
@@ -81,58 +91,62 @@ public:
     }
 
     static UnifiedReplay parseFormat(const std::string& format, const std::vector<uint8_t>& data) {
-        if (format == "deep") {
-            auto replay = DeepFormat::read(data);
-            return deepToUnified(replay);
-        }
-        else if (format == "ttr3") {
-            auto replay = TTR3Format::read(data);
-            return ttr3ToUnified(replay);
-        }
-        else if (format == "gdr") {
-            std::string jsonStr(data.begin(), data.end());
-            auto replay = GDRFormat::readJSON(jsonStr);
-            return gdrToUnified(replay);
-        }
-        else if (format == "gdr2") {
-            auto replay = GDR2Format::read(data);
-            return gdr2ToUnified(replay);
-        }
-        else if (format == "slc") {
-            auto replay = SLCFormat::read(data);
-            return slcToUnified(replay);
-        }
-        else if (format == "xd") {
-            auto replay = XDFormat::read(data);
-            return xdToUnified(replay);
-        }
-        else if (format == "ybot" || format == "ybf") {
-            auto replay = YBotFormat::read(data);
-            return ybotToUnified(replay);
-        }
-        else if (format == "tcm") {
-            auto replay = TCMFormat::read(data);
-            return tcmToUnified(replay);
-        }
-        else if (format == "re" || format == "re2" || format == "re3" || format == "re4") {
-            auto replay = REFormat::read(data);
-            return reToUnified(replay);
-        }
-        else if (format == "zbf") {
-            auto replay = ZBotFormat::read(data);
-            return zbotToUnified(replay);
-        }
-        else if (format == "mhr") {
-            auto replay = MHRFormat::read(data);
-            return mhrToUnified(replay);
-        }
-        else if (format == "echo") {
-            auto replay = EchoFormat::read(data);
-            return echoToUnified(replay);
-        }
-        else if (format == "txt") {
-            auto replay = PlaintextFormat::read(data);
-            return plaintextToUnified(replay);
+        try {
+            if (format == "deep") {
+                auto replay = DeepFormat::read(data);
+                return deepToUnified(replay);
+            }
+            else if (format == "ttr3") {
+                auto replay = TTR3Format::read(data);
+                return ttr3ToUnified(replay);
+            }
+            else if (format == "gdr") {
+                std::string jsonStr(data.begin(), data.end());
+                auto replay = GDRFormat::readJSON(jsonStr);
+                return gdrToUnified(replay);
+            }
+            else if (format == "gdr2") {
+                auto replay = GDR2Format::read(data);
+                return gdr2ToUnified(replay);
+            }
+            else if (format == "slc") {
+                auto replay = SLCFormat::read(data);
+                return slcToUnified(replay);
+            }
+            else if (format == "xd") {
+                auto replay = XDFormat::read(data);
+                return xdToUnified(replay);
+            }
+            else if (format == "ybot" || format == "ybf") {
+                auto replay = YBotFormat::read(data);
+                return ybotToUnified(replay);
+            }
+            else if (format == "tcm") {
+                auto replay = TCMFormat::read(data);
+                return tcmToUnified(replay);
+            }
+            else if (format == "re" || format == "re2" || format == "re3" || format == "re4") {
+                auto replay = REFormat::read(data);
+                return reToUnified(replay);
+            }
+            else if (format == "zbf") {
+                auto replay = ZBotFormat::read(data);
+                return zbotToUnified(replay);
+            }
+            else if (format == "mhr") {
+                auto replay = MHRFormat::read(data);
+                return mhrToUnified(replay);
+            }
+            else if (format == "echo") {
+                auto replay = EchoFormat::read(data);
+                return echoToUnified(replay);
+            }
+            else if (format == "txt") {
+                auto replay = PlaintextFormat::read(data);
+                return plaintextToUnified(replay);
+            }
+        } catch (const std::exception& e) {
+            throw std::runtime_error(std::string("Failed to parse format '") + format + "': " + e.what());
         }
 
         throw std::runtime_error("Unsupported format: " + format);
@@ -251,7 +265,7 @@ private:
             ui.down = input.flags & 1;
             ui.player2 = input.flags & 2;
             ui.button = (input.flags >> 2) & 3;
-            if (ui.button == 0) ui.button = 1;
+            normalizeButton(ui.button);
             ui.x = input.x;
             ui.y = input.y;
             ui.rotation = input.rotation;
@@ -270,7 +284,7 @@ private:
             ui.down = input.flags & 1;
             ui.player2 = input.flags & 2;
             ui.button = input.actionType;
-            if (ui.button == 0) ui.button = 1;
+            normalizeButton(ui.button);
             unified.inputs.push_back(ui);
         }
         return unified;
@@ -288,7 +302,7 @@ private:
             ui.down = input.down;
             ui.player2 = input.player2;
             ui.button = input.button;
-            if (ui.button == 0) ui.button = 1;
+            normalizeButton(ui.button);
             unified.inputs.push_back(ui);
         }
         return unified;
@@ -306,7 +320,7 @@ private:
             ui.down = input.down;
             ui.player2 = input.player2;
             ui.button = input.button;
-            if (ui.button == 0) ui.button = 1;
+            normalizeButton(ui.button);
             unified.inputs.push_back(ui);
         }
         return unified;
@@ -322,7 +336,7 @@ private:
             ui.down = input.down;
             ui.player2 = input.player2;
             ui.button = input.button;
-            if (ui.button == 0) ui.button = 1;
+            normalizeButton(ui.button);
             unified.inputs.push_back(ui);
         }
         return unified;
@@ -337,7 +351,7 @@ private:
             ui.down = input.down;
             ui.player2 = input.player2;
             ui.button = input.button;
-            if (ui.button == 0) ui.button = 1;
+            normalizeButton(ui.button);
             unified.inputs.push_back(ui);
         }
         return unified;
@@ -352,7 +366,7 @@ private:
             ui.down = input.down;
             ui.player2 = input.player2;
             ui.button = input.button;
-            if (ui.button == 0) ui.button = 1;
+            normalizeButton(ui.button);
             unified.inputs.push_back(ui);
         }
         return unified;
@@ -367,7 +381,7 @@ private:
             ui.down = input.down;
             ui.player2 = input.player2;
             ui.button = input.button;
-            if (ui.button == 0) ui.button = 1;
+            normalizeButton(ui.button);
             unified.inputs.push_back(ui);
         }
         return unified;
@@ -382,7 +396,7 @@ private:
             ui.down = input.down;
             ui.player2 = input.player2;
             ui.button = input.button;
-            if (ui.button == 0) ui.button = 1;
+            normalizeButton(ui.button);
             unified.inputs.push_back(ui);
         }
         return unified;
@@ -397,7 +411,7 @@ private:
             ui.down = input.down;
             ui.player2 = input.player2;
             ui.button = input.button;
-            if (ui.button == 0) ui.button = 1;
+            normalizeButton(ui.button);
             unified.inputs.push_back(ui);
         }
         return unified;
@@ -413,7 +427,7 @@ private:
             ui.down = input.down;
             ui.player2 = input.player2;
             ui.button = input.button;
-            if (ui.button == 0) ui.button = 1;
+            normalizeButton(ui.button);
             unified.inputs.push_back(ui);
         }
         return unified;
@@ -428,7 +442,7 @@ private:
             ui.down = input.down;
             ui.player2 = input.player2;
             ui.button = input.button;
-            if (ui.button == 0) ui.button = 1;
+            normalizeButton(ui.button);
             unified.inputs.push_back(ui);
         }
         return unified;
@@ -443,7 +457,7 @@ private:
             ui.down = input.down;
             ui.player2 = input.player2;
             ui.button = input.button;
-            if (ui.button == 0) ui.button = 1;
+            normalizeButton(ui.button);
             unified.inputs.push_back(ui);
         }
         return unified;
@@ -461,8 +475,8 @@ private:
             DeepFormat::DeepInput di;
             di.absoluteTime = input.absoluteTime;
             di.flags = (input.down ? 1 : 0)
-                     | (input.player2 ? 2 : 0)
-                     | ((input.button & 3) << 2);
+                | (input.player2 ? 2 : 0)
+                | ((input.button & 3) << 2);
             di.x = input.x;
             di.y = input.y;
             di.rotation = input.rotation;
@@ -489,8 +503,8 @@ private:
     static GDRFormat::Replay unifiedToGDR(const UnifiedReplay& unified) {
         GDRFormat::Replay replay;
         replay.author = unified.author;
-        replay.framerate = unified.tps;
-        replay.duration = unified.duration;
+        replay.framerate = static_cast<float>(unified.tps);
+        replay.duration = static_cast<float>(unified.duration);
         replay.seed = unified.seed;
         for (const auto& input : unified.inputs) {
             GDRFormat::Input gi;
@@ -526,127 +540,4 @@ private:
         replay.seed = unified.seed;
         for (const auto& input : unified.inputs) {
             SLCFormat::Input si;
-            si.frame = static_cast<uint32_t>(input.absoluteTime * unified.tps);
-            si.down = input.down;
-            si.player2 = input.player2;
-            si.button = input.button;
-            replay.inputs.push_back(si);
-        }
-        return replay;
-    }
-
-    static XDFormat::Replay unifiedToXD(const UnifiedReplay& unified) {
-        XDFormat::Replay replay;
-        replay.fps = unified.tps;
-        for (const auto& input : unified.inputs) {
-            XDFormat::Input xi;
-            xi.frame = static_cast<uint32_t>(input.absoluteTime * unified.tps);
-            xi.down = input.down;
-            xi.player2 = input.player2;
-            xi.button = input.button;
-            replay.inputs.push_back(xi);
-        }
-        return replay;
-    }
-
-    static YBotFormat::Replay unifiedToYBot(const UnifiedReplay& unified) {
-        YBotFormat::Replay replay;
-        replay.fps = unified.tps;
-        for (const auto& input : unified.inputs) {
-            YBotFormat::Input yi;
-            yi.frame = static_cast<uint64_t>(input.absoluteTime * unified.tps);
-            yi.down = input.down;
-            yi.player2 = input.player2;
-            yi.button = input.button;
-            replay.inputs.push_back(yi);
-        }
-        return replay;
-    }
-
-    static TCMFormat::Replay unifiedToTCM(const UnifiedReplay& unified) {
-        TCMFormat::Replay replay;
-        replay.fps = unified.tps;
-        for (const auto& input : unified.inputs) {
-            TCMFormat::Input ti;
-            ti.frame = static_cast<uint32_t>(input.absoluteTime * unified.tps);
-            ti.down = input.down;
-            ti.player2 = input.player2;
-            ti.button = input.button;
-            replay.inputs.push_back(ti);
-        }
-        return replay;
-    }
-
-    static REFormat::Replay unifiedToRE(const UnifiedReplay& unified) {
-        REFormat::Replay replay;
-        replay.fps = unified.tps;
-        for (const auto& input : unified.inputs) {
-            REFormat::Input ri;
-            ri.frame = static_cast<uint32_t>(input.absoluteTime * unified.tps);
-            ri.down = input.down;
-            ri.player2 = input.player2;
-            ri.button = input.button;
-            replay.inputs.push_back(ri);
-        }
-        return replay;
-    }
-
-    static ZBotFormat::Replay unifiedToZBot(const UnifiedReplay& unified) {
-        ZBotFormat::Replay replay;
-        replay.fps = unified.tps;
-        for (const auto& input : unified.inputs) {
-            ZBotFormat::Input zi;
-            zi.frame = static_cast<uint32_t>(input.absoluteTime * unified.tps);
-            zi.down = input.down;
-            zi.player2 = input.player2;
-            zi.button = input.button;
-            replay.inputs.push_back(zi);
-        }
-        return replay;
-    }
-
-    static MHRFormat::Replay unifiedToMHR(const UnifiedReplay& unified) {
-        MHRFormat::Replay replay;
-        replay.fps = unified.tps;
-        replay.levelId = unified.seed;
-        for (const auto& input : unified.inputs) {
-            MHRFormat::Input mi;
-            mi.frame = static_cast<uint32_t>(input.absoluteTime * unified.tps);
-            mi.down = input.down;
-            mi.player2 = input.player2;
-            mi.button = input.button;
-            replay.inputs.push_back(mi);
-        }
-        return replay;
-    }
-
-    static EchoFormat::Replay unifiedToEcho(const UnifiedReplay& unified) {
-        EchoFormat::Replay replay;
-        replay.fps = unified.tps;
-        for (const auto& input : unified.inputs) {
-            EchoFormat::Input ei;
-            ei.frame = static_cast<uint64_t>(input.absoluteTime * unified.tps);
-            ei.down = input.down;
-            ei.player2 = input.player2;
-            ei.button = input.button;
-            replay.inputs.push_back(ei);
-        }
-        return replay;
-    }
-
-    static PlaintextFormat::Replay unifiedToPlaintext(const UnifiedReplay& unified) {
-        PlaintextFormat::Replay replay;
-        replay.fps = unified.tps;
-        for (const auto& input : unified.inputs) {
-            PlaintextFormat::Input pi;
-            pi.frame = static_cast<uint32_t>(input.absoluteTime * unified.tps);
-            pi.down = input.down;
-            pi.player2 = input.player2;
-            pi.button = input.button;
-            replay.inputs.push_back(pi);
-        }
-        return replay;
-    }
-};
-
-} // namespace deepbot
+            si.frame = static_cast<uint32_t>(input.absoluteTime * unified.tps)
