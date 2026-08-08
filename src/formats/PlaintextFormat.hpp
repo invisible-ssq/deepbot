@@ -48,17 +48,13 @@ public:
 
         std::string line;
         while (std::getline(iss, line)) {
-            // Skip comments and empty lines
             if (line.empty() || line[0] == '#') {
-                // Parse fps from comment using regex
                 static const std::regex fpsRegex(R"(fps:\s*(\d+(?:\.\d+)?))");
                 std::smatch match;
                 if (std::regex_search(line, match, fpsRegex)) {
                     try {
                         replay.fps = std::stod(match[1].str());
-                    } catch (...) {
-                        // Ignore parse error, use default
-                    }
+                    } catch (...) {}
                 }
                 continue;
             }
@@ -79,10 +75,9 @@ public:
                 input.down = std::stoi(tokens[1]) != 0;
                 input.player2 = (tokens.size() > 2) ? (std::stoi(tokens[2]) != 0) : false;
                 input.button = (tokens.size() > 3) ? static_cast<uint8_t>(std::stoi(tokens[3])) : 1;
-                DeepParser::normalizeButton(input.button);
+                normalizeButton(input.button);
                 replay.inputs.push_back(input);
             } catch (const std::exception& e) {
-                // Skip malformed line
                 continue;
             }
         }
