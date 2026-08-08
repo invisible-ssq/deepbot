@@ -1,5 +1,5 @@
 #pragma once
-#include <geode/ui/Popup.hpp>
+#include <Geode/ui/Popup.hpp>
 #include <cocos2d.h>
 
 namespace deepbot {
