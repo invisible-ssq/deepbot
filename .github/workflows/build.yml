@@ -19,9 +19,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/geode-sdk
-          key: geode-sdk-android64-v10-${{ hashFiles('**/CMakeLists.txt') }}
+          key: geode-sdk-android64-v11-${{ hashFiles('**/CMakeLists.txt') }}
           restore-keys: |
-            geode-sdk-android64-v10-
+            geode-sdk-android64-v11-
 
       - name: Setup NDK r28b
         run: |
@@ -37,24 +37,10 @@ jobs:
           sudo mv /tmp/geode-cli/geode /usr/local/bin/
           geode --version
 
-      - name: Setup Geode Profile & SDK
+      - name: Download & Install Geode SDK
         run: |
           export GEODE_SDK=$HOME/geode-sdk
           mkdir -p $GEODE_SDK
-          
-          # Setup profile
-          mkdir -p ~/.config/geode
-          cat > ~/.config/geode/config.json << EOF
-          {
-            "default-profile": "default",
-            "profiles": {
-              "default": {
-                "sdk-path": "$GEODE_SDK",
-                "default-platform": "Android64"
-              }
-            }
-          }
-          EOF
           
           # Download SDK source
           if [ ! -f "$GEODE_SDK/CMakeLists.txt" ]; then
@@ -63,13 +49,16 @@ jobs:
             cp -r /tmp/geode-src/geode-5.8.2/* $GEODE_SDK/
           fi
           
-          # Install binaries via CLI (now profile is set)
-          geode sdk install-binaries
-          
-          # Fix permissions
-          find $GEODE_SDK -name "Codegen" -type f -exec chmod +x {} \; 2>/dev/null || true
-          
           echo "GEODE_SDK=$GEODE_SDK" >> $GITHUB_ENV
+
+      - name: Download Loader Binary
+        run: |
+          # Download Android64 loader binary directly to build dir
+          # This is where Geode CMake looks for it
+          mkdir -p build/android64
+          curl -L "https://github.com/geode-sdk/geode/releases/download/v5.8.2/geode-v5.8.2-android64.zip" -o /tmp/geode-loader.zip
+          unzip -o /tmp/geode-loader.zip -d build/android64/
+          ls -la build/android64/
 
       - name: Configure (two-pass for Codegen)
         run: |
