@@ -38,16 +38,21 @@ jobs:
 
       - name: Install SDK & Fix Codegen
         run: |
-          geode sdk install
+          # Setup geode profile
+          mkdir -p ~/.geode
+          echo "default" > ~/.geode/profile
+          # Install SDK to known location
+          export GEODE_SDK=$HOME/.geode/sdk
+          geode sdk install --path $GEODE_SDK
           geode sdk install-binaries
-          # Fix Codegen permissions BEFORE cmake
-          find ~/.geode -name "Codegen" -type f -exec chmod +x {} \; 2>/dev/null || true
-          find ~/.geode -name "codegen" -type f -exec chmod +x {} \; 2>/dev/null || true
-          ls -la ~/.geode/sdk/*/bin/ 2>/dev/null || true
+          # Fix Codegen permissions
+          find $GEODE_SDK -name "Codegen" -type f -exec chmod +x {} \; 2>/dev/null || true
+          find $GEODE_SDK -name "codegen" -type f -exec chmod +x {} \; 2>/dev/null || true
+          ls -la $GEODE_SDK/*/bin/ 2>/dev/null || true
 
       - name: Configure & Build
         run: |
-          export GEODE_SDK=$(geode sdk path)
+          export GEODE_SDK=$HOME/.geode/sdk
           cmake -B build \
             -S . \
             -DCMAKE_BUILD_TYPE=Release \
