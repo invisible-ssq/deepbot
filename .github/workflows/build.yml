@@ -26,7 +26,8 @@ jobs:
         with:
           combine: true
           target: ${{ matrix.config.target }}
-          android-ndk-version: r25c   # ← исправлено
+          sdk: 4.7.0
+          # android-ndk-version убран — берётся NDK раннера
 
   package:
     name: Package builds
