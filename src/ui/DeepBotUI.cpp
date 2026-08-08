@@ -10,6 +10,7 @@ using namespace geode::prelude;
 
 namespace deepbot {
 
+// ===== Маленькая плавающая кнопка (как у xdbot) =====
 class DeepBotButton : public CCMenuItemSpriteExtra {
 public:
     static DeepBotButton* create() {
@@ -27,13 +28,13 @@ public:
         if (!bg) {
             bg = CCSprite::create();
             auto* circle = CCDrawNode::create();
-            circle->drawDot(ccp(0, 0), 25, ccc4FFromccc3B({100, 150, 255}));
+            circle->drawDot(ccp(0, 0), 15, ccc4FFromccc3B({100, 150, 255}));
             bg->addChild(circle);
         }
-        bg->setScale(2.5f);
+        bg->setScale(1.2f);
 
         auto* label = CCLabelBMFont::create("DB", "bigFont.fnt");
-        label->setScale(0.4f);
+        label->setScale(0.25f);
         label->setPosition(bg->getContentSize() / 2);
         bg->addChild(label);
 
@@ -44,7 +45,6 @@ public:
             return false;
         }
 
-        m_draggable = true;
         m_dragging = false;
         m_dragStartPos = ccp(0, 0);
         m_dragStartTouch = ccp(0, 0);
@@ -74,7 +74,7 @@ public:
         }
     }
 
-    bool ccTouchBegan(CCTouch* touch, CCEvent*) {
+    bool ccTouchBegan(CCTouch* touch, CCEvent*) override {
         if (!isVisible() || !m_bEnabled) return false;
 
         auto pos = convertToNodeSpace(touch->getLocation());
@@ -90,9 +90,9 @@ public:
         return false;
     }
 
-    void ccTouchMoved(CCTouch* touch, CCEvent*) {
+    void ccTouchMoved(CCTouch* touch, CCEvent*) override {
         auto delta = ccpSub(touch->getLocation(), m_dragStartTouch);
-        if (ccpLength(delta) > 10) {
+        if (ccpLength(delta) > 8) {
             m_dragging = true;
         }
         if (m_dragging) {
@@ -106,7 +106,7 @@ public:
         }
     }
 
-    void ccTouchEnded(CCTouch*, CCEvent*) {
+    void ccTouchEnded(CCTouch*, CCEvent*) override {
         unselected();
         if (!m_dragging) {
             activate();
@@ -114,36 +114,22 @@ public:
         m_dragging = false;
     }
 
-    void ccTouchCancelled(CCTouch*, CCEvent*) {
+    void ccTouchCancelled(CCTouch*, CCEvent*) override {
         unselected();
         m_dragging = false;
     }
 
 private:
-    bool m_draggable = true;
     bool m_dragging = false;
     CCPoint m_dragStartPos;
     CCPoint m_dragStartTouch;
 };
 
+// ===== Хуки для кнопки в меню и паузе =====
 class $modify(MenuLayerDeepBot, MenuLayer) {
     bool init() override {
         if (!MenuLayer::init()) return false;
-
-        if (this->getChildByID("deepbot-menu"_spr)) return true;
-
-        auto winSize = CCDirector::sharedDirector()->getWinSize();
-
-        auto* menu = CCMenu::create();
-        menu->setPosition(0, 0);
-        menu->setID("deepbot-menu"_spr);
-
-        auto* btn = DeepBotButton::create();
-        btn->setPosition(winSize.width - 50, winSize.height - 100);
-        btn->setID("deepbot-button"_spr);
-        menu->addChild(btn);
-
-        this->addChild(menu, 100);
+        addDeepBotButton(this, "deepbot-menu", "deepbot-button", ccp(40, 40));
         return true;
     }
 };
@@ -151,61 +137,104 @@ class $modify(MenuLayerDeepBot, MenuLayer) {
 class $modify(PauseLayerDeepBot, PauseLayer) {
     void customSetup() override {
         PauseLayer::customSetup();
-
-        if (this->getChildByID("deepbot-pause-menu"_spr)) return;
-
-        auto winSize = CCDirector::sharedDirector()->getWinSize();
-
-        auto* menu = CCMenu::create();
-        menu->setPosition(0, 0);
-        menu->setID("deepbot-pause-menu"_spr);
-
-        auto* btn = DeepBotButton::create();
-        btn->setPosition(winSize.width - 50, winSize.height - 50);
-        btn->setID("deepbot-pause-button"_spr);
-        menu->addChild(btn);
-
-        this->addChild(menu, 100);
+        addDeepBotButton(this, "deepbot-pause-menu", "deepbot-pause-button", ccp(40, 40));
     }
 };
 
-bool DeepBotUI::init() {
-    if (!FLAlertLayer::init(150)) return false;
+static void addDeepBotButton(CCLayer* layer, const char* menuID, const char* btnID, CCPoint pos) {
+    if (layer->getChildByID(menuID)) return;
 
+    auto* menu = CCMenu::create();
+    menu->setPosition(0, 0);
+    menu->setID(menuID);
+
+    auto* btn = DeepBotButton::create();
+    btn->setPosition(pos);
+    btn->setID(btnID);
+    menu->addChild(btn);
+
+    layer->addChild(menu, 100);
+}
+
+// ===== Компактное меню (как у xdbot/xdnako) =====
+bool DeepBotUI::setup() {
     auto winSize = CCDirector::sharedDirector()->getWinSize();
 
+    // Фон — полупрозрачный, компактный
+    this->setTitle("DeepBot");
+    m_mainLayer->setContentSize({ 280, 160 });
+
+    auto bg = static_cast<CCScale9Sprite*>(m_mainLayer->getChildren()->objectAtIndex(0));
+    if (bg) {
+        bg->setContentSize({ 280, 160 });
+    }
+
+    // Статус сверху
     m_statusLabel = CCLabelBMFont::create("Ready", "bigFont.fnt");
-    m_statusLabel->setPosition(winSize.width / 2, winSize.height / 2 + 80);
-    m_statusLabel->setScale(0.6f);
+    m_statusLabel->setScale(0.35f);
+    m_statusLabel->setPosition(140, 135);
     m_mainLayer->addChild(m_statusLabel);
 
-    m_buttonMenu = CCMenu::create();
-    m_buttonMenu->setPosition(winSize.width / 2, winSize.height / 2);
+    // Кнопки в один ряд — Record | Stop | Play
+    auto* row1 = CCMenu::create();
+    row1->setPosition(140, 95);
+    row1->setContentSize({ 260, 40 });
 
-    auto createBtn = [&](const char* text, SEL_MenuHandler handler, float x, float y) {
+    auto createIconBtn = [&](const char* text, ccColor3B color, SEL_MenuHandler handler) {
         auto* btn = CCMenuItemSpriteExtra::create(
-            ButtonSprite::create(text, 100, true, "bigFont.fnt", "GJ_button_01.png", 40, 0.8f),
+            ButtonSprite::create(text, 70, true, "bigFont.fnt", "GJ_button_01.png", 30, 0.6f),
             this,
             handler
         );
-        btn->setPosition(x, y);
         return btn;
     };
 
-    m_buttonMenu->addChild(createBtn("Record", menu_selector(DeepBotUI::onRecord), -80, 40));
-    m_buttonMenu->addChild(createBtn("Stop", menu_selector(DeepBotUI::onStop), 80, 40));
-    m_buttonMenu->addChild(createBtn("Play", menu_selector(DeepBotUI::onPlay), -80, -20));
-    m_buttonMenu->addChild(createBtn("Save", menu_selector(DeepBotUI::onSave), 80, -20));
-    m_buttonMenu->addChild(createBtn("Load", menu_selector(DeepBotUI::onLoad), -80, -80));
-    m_buttonMenu->addChild(createBtn("Convert", menu_selector(DeepBotUI::onConvert), 80, -80));
+    m_recordBtn = createIconBtn("Rec", {255, 80, 80}, menu_selector(DeepBotUI::onRecord));
+    m_recordBtn->setPosition(-80, 0);
+    row1->addChild(m_recordBtn);
 
-    m_mainLayer->addChild(m_buttonMenu);
+    m_stopBtn = createIconBtn("Stop", {255, 255, 80}, menu_selector(DeepBotUI::onStop));
+    m_stopBtn->setPosition(0, 0);
+    row1->addChild(m_stopBtn);
+
+    m_playBtn = createIconBtn("Play", {80, 255, 80}, menu_selector(DeepBotUI::onPlay));
+    m_playBtn->setPosition(80, 0);
+    row1->addChild(m_playBtn);
+
+    m_mainLayer->addChild(row1);
+
+    // Второй ряд — Save | Load | Convert
+    auto* row2 = CCMenu::create();
+    row2->setPosition(140, 50);
+    row2->setContentSize({ 260, 40 });
+
+    auto* saveBtn = createIconBtn("Save", {150, 150, 255}, menu_selector(DeepBotUI::onSave));
+    saveBtn->setPosition(-80, 0);
+    row2->addChild(saveBtn);
+
+    auto* loadBtn = createIconBtn("Load", {150, 255, 150}, menu_selector(DeepBotUI::onLoad));
+    loadBtn->setPosition(0, 0);
+    row2->addChild(loadBtn);
+
+    auto* convBtn = createIconBtn("Conv", {255, 200, 100}, menu_selector(DeepBotUI::onConvert));
+    convBtn->setPosition(80, 0);
+    row2->addChild(convBtn);
+
+    m_mainLayer->addChild(row2);
+
+    // Нижняя инфа
+    auto* info = CCLabelBMFont::create("deepbot v1.0.1", "goldFont.fnt");
+    info->setScale(0.25f);
+    info->setPosition(140, 15);
+    m_mainLayer->addChild(info);
+
+    refreshButtons();
     return true;
 }
 
 DeepBotUI* DeepBotUI::create() {
     auto* ret = new DeepBotUI();
-    if (ret && ret->init()) {
+    if (ret && ret->initAnchored(280, 160)) {
         ret->autorelease();
         return ret;
     }
@@ -213,6 +242,25 @@ DeepBotUI* DeepBotUI::create() {
     return nullptr;
 }
 
+void DeepBotUI::onClose(CCObject*) {
+    this->setKeypadEnabled(false);
+    this->removeFromParentAndCleanup(true);
+}
+
+void DeepBotUI::refreshButtons() {
+    auto& bot = DeepBot::instance();
+    if (m_recordBtn) m_recordBtn->setVisible(!bot.isRecording());
+    if (m_stopBtn) m_stopBtn->setVisible(bot.isRecording());
+}
+
+void DeepBotUI::updateStatus(const std::string& status) {
+    if (m_statusLabel) {
+        m_statusLabel->setString(status.c_str());
+    }
+    refreshButtons();
+}
+
+// ===== Обработчики =====
 void DeepBotUI::onRecord(CCObject*) {
     auto& bot = DeepBot::instance();
     if (bot.isRecording()) return;
@@ -232,19 +280,18 @@ void DeepBotUI::onStop(CCObject*) {
     if (!bot.isRecording()) return;
 
     bot.stopRecording();
-    updateStatus("Stopped. " + std::to_string(bot.getFrameCount()) + " frames");
+    updateStatus(std::to_string(bot.getFrameCount()) + " frames");
 }
 
 void DeepBotUI::onPlay(CCObject*) {
     auto& bot = DeepBot::instance();
     if (bot.isRecording()) {
-        updateStatus("Stop recording first!");
+        updateStatus("Stop first!");
         return;
     }
     if (bot.isPlaying()) return;
-
     if (bot.getFrameCount() == 0) {
-        updateStatus("No macro loaded!");
+        updateStatus("No macro!");
         return;
     }
 
@@ -308,16 +355,6 @@ void DeepBotUI::onConvert(CCObject*) {
         "Load a macro first, then use Save and choose the target format.",
         "OK"
     )->show();
-}
-
-void DeepBotUI::onSettings(CCObject*) {
-    geode::openSettingsPopup(Mod::get());
-}
-
-void DeepBotUI::updateStatus(const std::string& status) {
-    if (m_statusLabel) {
-        m_statusLabel->setString(status.c_str());
-    }
 }
 
 } // namespace deepbot
