@@ -19,9 +19,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/geode-sdk
-          key: geode-sdk-android64-v8-${{ hashFiles('**/CMakeLists.txt') }}
+          key: geode-sdk-android64-v9-${{ hashFiles('**/CMakeLists.txt') }}
           restore-keys: |
-            geode-sdk-android64-v8-
+            geode-sdk-android64-v9-
 
       - name: Setup NDK r28b
         run: |
@@ -37,26 +37,35 @@ jobs:
           sudo mv /tmp/geode-cli/geode /usr/local/bin/
           geode --version
 
-      - name: Download & Install Geode SDK
+      - name: Download & Install Geode SDK + Loader Binary
         run: |
           export GEODE_SDK=$HOME/geode-sdk
           mkdir -p $GEODE_SDK
           
+          # Download SDK source
           if [ ! -f "$GEODE_SDK/CMakeLists.txt" ]; then
             curl -L "https://github.com/geode-sdk/geode/archive/refs/tags/v5.8.2.zip" -o /tmp/geode-src.zip
             unzip -o /tmp/geode-src.zip -d /tmp/geode-src
             cp -r /tmp/geode-src/geode-5.8.2/* $GEODE_SDK/
           fi
           
+          # Download Android64 loader binary (KEY FIX)
+          mkdir -p $GEODE_SDK/build/android64
+          curl -L "https://github.com/geode-sdk/geode/releases/download/v5.8.2/geode-v5.8.2-android64.zip" -o /tmp/geode-loader.zip
+          unzip -o /tmp/geode-loader.zip -d $GEODE_SDK/build/android64/
+          
+          # Also copy to bin
           mkdir -p $GEODE_SDK/bin
-          curl -L "https://github.com/geode-sdk/geode/releases/download/v5.8.2/geode-v5.8.2-android64.zip" -o /tmp/geode-bin.zip
-          unzip -o /tmp/geode-bin.zip -d $GEODE_SDK/bin/
+          cp -r $GEODE_SDK/build/android64/* $GEODE_SDK/bin/ 2>/dev/null || true
+          
+          # Fix Codegen permissions
+          find $GEODE_SDK -name "Codegen" -type f -exec chmod +x {} \; 2>/dev/null || true
           
           echo "GEODE_SDK=$GEODE_SDK" >> $GITHUB_ENV
 
       - name: Configure (two-pass for Codegen)
         run: |
-          # Pass 1: Download dependencies (Codegen will fail with permission denied)
+          # Pass 1: Download dependencies
           cmake -B build \
             -S . \
             -DCMAKE_BUILD_TYPE=Release \
@@ -67,10 +76,8 @@ jobs:
           
           # Fix Codegen permissions
           find build -name "Codegen" -type f -exec chmod +x {} \; 2>/dev/null || true
-          find build -name "codegen" -type f -exec chmod +x {} \; 2>/dev/null || true
-          ls -la build/bindings/codegen/ 2>/dev/null || true
           
-          # Pass 2: Full configure with working Codegen
+          # Pass 2: Full configure
           cmake -B build \
             -S . \
             -DCMAKE_BUILD_TYPE=Release \
