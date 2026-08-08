@@ -10,7 +10,6 @@ endif()
 
 add_subdirectory($ENV{GEODE_SDK} ${CMAKE_CURRENT_BINARY_DIR}/geode)
 
-# Explicit source files instead of GLOB_RECURSE
 set(SOURCES
     src/main.cpp
     src/DeepBot.cpp
@@ -32,6 +31,12 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     src/utils
 )
 
+# Find required dependencies
+find_package(ZLIB REQUIRED)
+find_package(nlohmann_json REQUIRED)
+
+target_link_libraries(${PROJECT_NAME} ZLIB::ZLIB nlohmann_json::nlohmann_json)
+
 if(ANDROID)
     target_compile_definitions(${PROJECT_NAME} PRIVATE DEEPBOT_ANDROID)
     set_target_properties(${PROJECT_NAME} PROPERTIES
@@ -42,6 +47,7 @@ else()
     target_compile_definitions(${PROJECT_NAME} PRIVATE DEEPBOT_WINDOWS)
 endif()
 
-set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -DNDEBUG")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra")
 
 create_geode_file(${PROJECT_NAME})
