@@ -28,6 +28,8 @@ private:
     void onSave(CCObject*);
     void onLoad(CCObject*);
     void onConvert(CCObject*);
+    void onSaveFormat(CCObject*);
+    void onSaveCustomFormat(CCObject*);
 };
 
 } // namespace deepbot
