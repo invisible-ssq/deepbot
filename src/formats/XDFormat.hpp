@@ -66,7 +66,7 @@ public:
             throw std::runtime_error("Invalid XD magic");
         }
 
-        uint16_t version = reader.readU16();
+        [[maybe_unused]] uint16_t version = reader.readU16();
         replay.fps = reader.readF64();
         replay.levelName = reader.readStringVar();
 
