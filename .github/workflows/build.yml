@@ -1,6 +1,10 @@
 name: Build deepbot
 
 on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 jobs:
@@ -21,13 +25,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Cache Geode SDK
+        uses: actions/cache@v4
+        with:
+          path: ~/.geode
+          key: geode-sdk-${{ matrix.config.target }}-${{ hashFiles('**/CMakeLists.txt') }}
+          restore-keys: |
+            geode-sdk-${{ matrix.config.target }}-
+
       - name: Build the mod
         uses: geode-sdk/build-geode-mod@main
         with:
           combine: true
           target: ${{ matrix.config.target }}
           sdk: 5.8.2
-          # android-ndk-version убран — берётся NDK раннера
 
   package:
     name: Package builds
