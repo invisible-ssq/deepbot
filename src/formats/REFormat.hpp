@@ -1,7 +1,7 @@
 #pragma once
 #include <vector>
-#include <cstdint>
 #include <string>
+#include <cstring>
 #include <algorithm>
 #include "../utils/BinaryReader.hpp"
 #include "../utils/BinaryWriter.hpp"
@@ -47,7 +47,7 @@ public:
 
         if (version >= 3) {
             writer.writeU32(0); // seed
-            writer.writeU8(0);  // flags
+            writer.writeU8(0); // flags
         }
 
         if (version >= 4) {
@@ -70,7 +70,8 @@ public:
             writer.writeVarU64(p1Inputs.size());
             writer.writeVarU64(p2Inputs.size());
         } else {
-            writer.writeU32(p1Inputs.size() + p2Inputs.size());
+            // RE v1: warn about P2 data loss
+            writer.writeU32(static_cast<uint32_t>(p1Inputs.size() + p2Inputs.size()));
         }
 
         // Write P1 with delta encoding
