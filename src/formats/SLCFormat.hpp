@@ -24,12 +24,16 @@ public:
     static std::vector<uint8_t> write(const Replay& replay) {
         BinaryWriter writer;
         writer.writeF64(replay.fps);
-        writer.writeU32(replay.inputs.size());
+        writer.writeU32(static_cast<uint32_t>(replay.inputs.size()));
         for (const auto& input : replay.inputs) {
+            // Check for frame overflow (28 bits max)
+            if (input.frame > 0x0FFFFFFF) {
+                throw std::runtime_error("SLC format: frame number too large (max 268,435,455)");
+            }
             uint32_t packed = (input.frame << 4)
-                            | ((input.button & 3) << 1)
-                            | ((input.player2 ? 1 : 0) << 3)
-                            | (input.down ? 1 : 0);
+                | ((input.button & 3) << 1)
+                | ((input.player2 ? 1 : 0) << 3)
+                | (input.down ? 1 : 0);
             writer.writeU32(packed);
         }
         writer.writeU64(replay.seed);
@@ -57,7 +61,7 @@ public:
             input.player2 = (packed & 0x8) != 0;
             input.down = (packed & 0x1) != 0;
             input.button = (packed >> 1) & 3;
-            if (input.button == 0) input.button = 1;
+            DeepParser::normalizeButton(input.button);
             replay.inputs.push_back(input);
         }
         if (!reader.eof()) {
