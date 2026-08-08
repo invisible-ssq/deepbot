@@ -19,9 +19,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/geode-sdk
-          key: geode-sdk-android64-v6-${{ hashFiles('**/CMakeLists.txt') }}
+          key: geode-sdk-android64-v7-${{ hashFiles('**/CMakeLists.txt') }}
           restore-keys: |
-            geode-sdk-android64-v6-
+            geode-sdk-android64-v7-
 
       - name: Setup NDK r28b
         run: |
@@ -52,11 +52,9 @@ jobs:
           curl -L "https://github.com/geode-sdk/geode/releases/download/v5.8.2/geode-v5.8.2-android64.zip" -o /tmp/geode-bin.zip
           unzip -o /tmp/geode-bin.zip -d $GEODE_SDK/bin/
           
-          find $GEODE_SDK -name "Codegen" -type f -exec chmod +x {} \; 2>/dev/null || true
-          
           echo "GEODE_SDK=$GEODE_SDK" >> $GITHUB_ENV
 
-      - name: Configure & Build
+      - name: Configure
         run: |
           cmake -B build \
             -S . \
@@ -65,6 +63,15 @@ jobs:
             -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake \
             -DANDROID_ABI=arm64-v8a \
             -DANDROID_PLATFORM=android-23
+
+      - name: Fix Codegen Permissions
+        run: |
+          find build -name "Codegen" -type f -exec chmod +x {} \;
+          find build -name "codegen" -type f -exec chmod +x {} \;
+          ls -la build/bindings/codegen/ 2>/dev/null || true
+
+      - name: Build
+        run: |
           cmake --build build --config Release -j$(nproc)
 
       - name: Upload artifact
