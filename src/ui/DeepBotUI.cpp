@@ -6,7 +6,6 @@ using namespace geode::prelude;
 
 namespace deepbot {
 
-// Draggable button that opens DeepBotUI
 class DeepBotButton : public CCMenuItemSpriteExtra {
 public:
     static DeepBotButton* create() {
@@ -20,10 +19,8 @@ public:
     }
 
     bool init() {
-        // Create circular background (logo placeholder)
         auto* bg = CCSprite::create("GJ_button_01.png");
         if (!bg) {
-            // Fallback: create simple circle
             bg = CCSprite::create();
             auto* circle = CCDrawNode::create();
             circle->drawDot(ccp(0, 0), 25, ccc4FFromccc3B({100, 150, 255}));
@@ -31,7 +28,6 @@ public:
         }
         bg->setScale(2.5f);
 
-        // Add "DB" text label
         auto* label = CCLabelBMFont::create("DB", "bigFont.fnt");
         label->setScale(0.4f);
         label->setPosition(bg->getContentSize() / 2);
@@ -55,7 +51,6 @@ public:
         }
     }
 
-    // Enable dragging
     void selected() override {
         CCMenuItemSpriteExtra::selected();
         m_dragging = false;
@@ -95,7 +90,6 @@ public:
         }
         if (m_dragging) {
             auto newPos = ccpAdd(m_dragStartPos, delta);
-            // Clamp to screen bounds
             auto winSize = CCDirector::sharedDirector()->getWinSize();
             auto halfW = getContentSize().width * getScale() / 2;
             auto halfH = getContentSize().height * getScale() / 2;
@@ -125,7 +119,6 @@ private:
     CCPoint m_dragStartTouch;
 };
 
-// MenuLayer hook - add button to main menu
 class $modify(MenuLayerDeepBot, MenuLayer) {
     bool init() {
         if (!MenuLayer::init()) return false;
@@ -133,10 +126,14 @@ class $modify(MenuLayerDeepBot, MenuLayer) {
         if (!Mod::get()->isEnabled()) return true;
         if (!Mod::get()->getSettingValue<bool>("show-button")) return true;
 
+        // Prevent duplicate buttons
+        if (this->getChildByID("deepbot-menu"_spr)) return true;
+
         auto winSize = CCDirector::sharedDirector()->getWinSize();
         
         auto* menu = CCMenu::create();
         menu->setPosition(0, 0);
+        menu->setID("deepbot-menu"_spr);
         
         auto* btn = DeepBotButton::create();
         btn->setPosition(winSize.width - 50, winSize.height - 100);
@@ -148,7 +145,6 @@ class $modify(MenuLayerDeepBot, MenuLayer) {
     }
 };
 
-// PauseLayer hook - add button to pause menu (in addition to existing menu button)
 class $modify(PauseLayerDeepBot, PauseLayer) {
     void customSetup() {
         PauseLayer::customSetup();
@@ -156,10 +152,14 @@ class $modify(PauseLayerDeepBot, PauseLayer) {
         if (!Mod::get()->isEnabled()) return;
         if (!Mod::get()->getSettingValue<bool>("show-button")) return;
 
+        // Prevent duplicate buttons
+        if (this->getChildByID("deepbot-pause-menu"_spr)) return;
+
         auto winSize = CCDirector::sharedDirector()->getWinSize();
         
         auto* menu = CCMenu::create();
         menu->setPosition(0, 0);
+        menu->setID("deepbot-pause-menu"_spr);
         
         auto* btn = DeepBotButton::create();
         btn->setPosition(winSize.width - 50, winSize.height - 50);
@@ -169,8 +169,6 @@ class $modify(PauseLayerDeepBot, PauseLayer) {
         this->addChild(menu, 100);
     }
 };
-
-// ... rest of DeepBotUI implementation stays the same ...
 
 bool DeepBotUI::setup() {
     auto winSize = CCDirector::sharedDirector()->getWinSize();
