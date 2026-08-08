@@ -8,9 +8,6 @@
 
 namespace deepbot {
 
-// ToastyReplay 3 Format (.ttr3)
-// Compressed binary format with sections
-
 class TTR3Format {
 public:
     static constexpr const char* MAGIC = "TTR3";
