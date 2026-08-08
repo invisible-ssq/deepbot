@@ -4,11 +4,9 @@
 #include <sstream>
 #include <iomanip>
 #include <stdexcept>
+#include <regex>
 
 namespace deepbot {
-
-// Plaintext Format (.txt)
-// Simple text format: frame,down,player2,button per line
 
 class PlaintextFormat {
 public:
@@ -52,11 +50,12 @@ public:
         while (std::getline(iss, line)) {
             // Skip comments and empty lines
             if (line.empty() || line[0] == '#') {
-                // Parse fps from comment
-                if (line.find("fps:") != std::string::npos) {
-                    size_t pos = line.find("fps:");
+                // Parse fps from comment using regex
+                static const std::regex fpsRegex(R"(fps:\s*(\d+(?:\.\d+)?))");
+                std::smatch match;
+                if (std::regex_search(line, match, fpsRegex)) {
                     try {
-                        replay.fps = std::stod(line.substr(pos + 4));
+                        replay.fps = std::stod(match[1].str());
                     } catch (...) {
                         // Ignore parse error, use default
                     }
