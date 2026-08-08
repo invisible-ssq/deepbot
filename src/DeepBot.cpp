@@ -18,10 +18,9 @@ void DeepBot::startRecording() {
     double tps = getDefaultTPS();
     uint32_t seed = 0;
     
-    auto& gameState = playLayer->m_gameState;
-    // m_unkRandSeed may not exist in all GD versions, wrap safely
+    // m_unkRandSeed may not exist on all platforms, use safe access
     #if defined(GEODE_IS_WINDOWS)
-        seed = gameState.m_unkRandSeed;
+        seed = playLayer->m_gameState.m_unkRandSeed;
     #endif
 
     m_recorder.startRecording(tps, seed);
