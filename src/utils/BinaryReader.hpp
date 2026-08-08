@@ -1,7 +1,7 @@
 #pragma once
+#include <cstdint>
 #include <vector>
 #include <string>
-#include <cstdint>
 #include <cstring>
 #include <stdexcept>
 
@@ -14,7 +14,7 @@ private:
     size_t m_pos;
 
 public:
-    BinaryReader(const std::vector<uint8_t>& data) 
+    BinaryReader(const std::vector<uint8_t>& data)
         : m_data(data.data()), m_size(data.size()), m_pos(0) {}
 
     BinaryReader(const uint8_t* data, size_t size)
@@ -36,6 +36,7 @@ public:
 
     template<typename T>
     T read() {
+        static_assert(std::is_trivially_copyable_v<T>, "T must be trivially copyable");
         if (m_pos + sizeof(T) > m_size) throw std::runtime_error("Read out of bounds");
         T value;
         std::memcpy(&value, m_data + m_pos, sizeof(T));
@@ -83,7 +84,7 @@ public:
 
     std::string readStringVar() {
         uint64_t len = readVarU64();
-        if (m_pos + len > m_size) throw std::runtime_error("String read out of bounds");
+        if (len > remaining()) throw std::runtime_error("String var read out of bounds");
         std::string result(reinterpret_cast<const char*>(m_data + m_pos), len);
         m_pos += len;
         return result;
