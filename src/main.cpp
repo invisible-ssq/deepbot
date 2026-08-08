@@ -3,6 +3,7 @@
 #include <Geode/modify/GJBaseGameLayer.hpp>
 #include "DeepBot.hpp"
 #include "ui/DeepBotUI.hpp"
+#include "formats/DeepParser.hpp"
 
 using namespace geode::prelude;
 
