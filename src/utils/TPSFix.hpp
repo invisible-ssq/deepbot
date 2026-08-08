@@ -1,6 +1,7 @@
 #pragma once
 #include <cstdint>
 #include <vector>
+#include <cmath>
 
 namespace deepbot {
 
@@ -15,7 +16,7 @@ struct TPSIndependentFrame {
 class TPSConverter {
 public:
     static uint32_t timeToFrame(double time, double tps) {
-        return static_cast<uint32_t>(time * tps);
+        return static_cast<uint32_t>(std::round(time * tps));
     }
 
     static double frameToTime(uint32_t frame, double tps) {
@@ -34,7 +35,6 @@ public:
         
         for (const auto& input : inputs) {
             auto converted = input;
-            // Convert: frame = time * sourceTPS, newTime = frame / targetTPS
             uint32_t frame = timeToFrame(input.absoluteTime, sourceTPS);
             converted.absoluteTime = frameToTime(frame, targetTPS);
             result.push_back(converted);
