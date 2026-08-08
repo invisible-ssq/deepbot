@@ -26,6 +26,8 @@ jobs:
         with:
           combine: true
           target: ${{ matrix.config.target }}
+          # Фикс NDK r25c вместо r29
+          ndk-version: r25c
 
   package:
     name: Package builds
