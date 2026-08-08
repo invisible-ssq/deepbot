@@ -9,77 +9,52 @@ on:
 
 jobs:
   build:
-    name: ${{ matrix.config.name }}
-    runs-on: ${{ matrix.config.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        config:
-          - name: Windows
-            os: windows-latest
-            target: Win64
-          - name: Android64
-            os: ubuntu-latest
-            target: Android64
+    name: Android64
+    runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Geode CLI
-        uses: geode-sdk/cli@main
+      - name: Cache Geode SDK
+        uses: actions/cache@v4
         with:
-          version: 3.8.0
+          path: ~/.geode
+          key: geode-sdk-android64-${{ hashFiles('**/CMakeLists.txt') }}
+          restore-keys: |
+            geode-sdk-android64-
 
-      - name: Install Geode SDK
+      - name: Setup NDK
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r26b
+          add-to-path: true
+
+      - name: Install Geode SDK & Fix Permissions
         run: |
+          # Install SDK
+          curl -L https://github.com/geode-sdk/cli/releases/download/v3.8.0/geode-cli-v3.8.0-linux-x64.tar.gz | tar xz -C /tmp
+          sudo mv /tmp/geode /usr/local/bin/
           geode sdk install
           geode sdk install-binaries
-        env:
-          GEODE_SDK: ${{ github.workspace }}/geode-sdk
+          # Fix Codegen permissions
+          find ~/.geode -name "Codegen" -type f -exec chmod +x {} \; 2>/dev/null || true
+          find ~/.geode -name "codegen" -type f -exec chmod +x {} \; 2>/dev/null || true
 
-      - name: Fix Codegen permissions (Unix)
-        if: runner.os != 'Windows'
+      - name: Configure & Build
         run: |
-          find ${{ github.workspace }}/geode-sdk -name "Codegen" -type f -exec chmod +x {} \; 2>/dev/null || true
-          find ${{ github.workspace }}/build -name "Codegen" -type f -exec chmod +x {} \; 2>/dev/null || true
+          export GEODE_SDK=$(geode sdk path)
+          cmake -B build \
+            -S . \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DGEODE_TARGET_PLATFORM=Android64 \
+            -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake \
+            -DANDROID_ABI=arm64-v8a \
+            -DANDROID_PLATFORM=android-21 \
+            -DCMAKE_CXX_FLAGS="-stdlib=libc++"
+          cmake --build build --config Release -j$(nproc)
 
-      - name: Build (Windows)
-        if: matrix.config.target == 'Win64'
-        run: |
-          cmake -B build -S . -DCMAKE_BUILD_TYPE=Release -DGEODE_TARGET_PLATFORM=Win64
-          cmake --build build --config Release -j4
-
-      - name: Build (Android64)
-        if: matrix.config.target == 'Android64'
-        run: |
-          cmake -B build -S . -DCMAKE_BUILD_TYPE=Release -DGEODE_TARGET_PLATFORM=Android64 -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-21
-          cmake --build build --config Release -j4
-
-      - name: Upload build artifact
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: deepbot-${{ matrix.config.target }}
+          name: deepbot-android64
           path: build/**/*.geode
-
-  package:
-    name: Package builds
-    runs-on: ubuntu-latest
-    needs: ['build']
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-
-      - name: Package
-        run: |
-          mkdir -p package
-          cp artifacts/**/*.geode package/ 2>/dev/null || true
-
-      - name: Upload package
-        uses: actions/upload-artifact@v4
-        with:
-          name: deepbot_package
-          path: package/*.geode
