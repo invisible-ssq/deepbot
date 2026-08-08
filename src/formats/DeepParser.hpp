@@ -24,10 +24,6 @@ namespace deepbot {
 
 class DeepParser {
 public:
-    static void normalizeButton(uint8_t& button) {
-        if (button == 0) button = 1;
-    }
-
     static std::string detectFormat(const std::string& path, const std::vector<uint8_t>& data) {
         std::string ext = path.substr(path.find_last_of(".") + 1);
         std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
@@ -55,8 +51,9 @@ public:
         if (data.size() > 0 && (data[0] == '{' || data[0] == '[')) {
             try {
                 std::string content(data.begin(), data.end());
-                if (matjson::Value::fromString(content).isOk()) {
-                    auto j = matjson::Value::fromString(content).unwrap();
+                auto parseResult = matjson::parse(content);
+                if (parseResult.isOk()) {
+                    auto j = parseResult.unwrap();
                     if (j.contains("framerate")) return "gdr";
                     if (j.contains("fps")) return "mhr";
                 }
@@ -239,7 +236,7 @@ public:
         d.duration = replay.duration;
         d.seed = replay.seed;
         for (const auto& inp : replay.inputs) {
-            DeepFormat::DeepInput di;
+            DeepInput di;
             di.absoluteTime = inp.absoluteTime;
             di.flags = (inp.down ? 1 : 0) | (inp.player2 ? 2 : 0) | ((inp.button & 3) << 2);
             di.x = inp.x; di.y = inp.y;
