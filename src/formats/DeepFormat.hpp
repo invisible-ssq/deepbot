@@ -78,7 +78,7 @@ public:
         if (version != VERSION) {
             throw std::runtime_error("Unsupported .deep version");
         }
-        uint32_t flags = reader.readU32();
+        [[maybe_unused]] uint32_t flags = reader.readU32();
         uint32_t headerSize = reader.readU32();
         
         replay.author = reader.readString();
@@ -108,7 +108,6 @@ public:
             replay.inputs.push_back(input);
         }
         
-        // Skip footer check - not all writers include it
         return replay;
     }
 };
