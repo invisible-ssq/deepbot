@@ -1,7 +1,7 @@
 #pragma once
 #include <string>
 #include <vector>
-#include <nlohmann/json.hpp>
+#include <matjson.hpp>
 #include "../utils/BinaryReader.hpp"
 
 namespace deepbot {
@@ -41,41 +41,41 @@ public:
     };
 
     static Replay readJSON(const std::string& jsonStr) {
-        auto j = nlohmann::json::parse(jsonStr);
+        auto val = matjson::Value::fromString(jsonStr).unwrapOr(matjson::Value());
         Replay replay;
-        replay.author = j.value("author", "");
-        replay.description = j.value("description", "");
-        replay.duration = j.value("duration", 0.0f);
-        replay.gameVersion = j.value("gameVersion", 0.0f);
-        replay.version = j.value("version", 1.0f);
-        replay.framerate = j.value("framerate", 240.0f);
-        replay.seed = j.value("seed", 0);
-        replay.coins = j.value("coins", 0);
-        replay.ldm = j.value("ldm", false);
-        if (j.contains("bot")) {
-            replay.bot.name = j["bot"].value("name", "");
-            replay.bot.version = j["bot"].value("version", "");
+        replay.author = val["author"].asString().unwrapOr("");
+        replay.description = val["description"].asString().unwrapOr("");
+        replay.duration = val["duration"].asDouble().unwrapOr(0.0f);
+        replay.gameVersion = static_cast<float>(val["gameVersion"].asDouble().unwrapOr(0.0));
+        replay.version = static_cast<float>(val["version"].asDouble().unwrapOr(1.0));
+        replay.framerate = static_cast<float>(val["framerate"].asDouble().unwrapOr(240.0));
+        replay.seed = val["seed"].asInt().unwrapOr(0);
+        replay.coins = val["coins"].asInt().unwrapOr(0);
+        replay.ldm = val["ldm"].asBool().unwrapOr(false);
+        if (val.contains("bot")) {
+            replay.bot.name = val["bot"]["name"].asString().unwrapOr("");
+            replay.bot.version = val["bot"]["version"].asString().unwrapOr("");
         }
-        if (j.contains("level")) {
-            replay.level.id = j["level"].value("id", 0);
-            replay.level.name = j["level"].value("name", "");
+        if (val.contains("level")) {
+            replay.level.id = val["level"]["id"].asInt().unwrapOr(0);
+            replay.level.name = val["level"]["name"].asString().unwrapOr("");
         }
-        if (j.contains("inputs")) {
-            for (const auto& inp : j["inputs"]) {
+        if (val.contains("inputs")) {
+            for (const auto& inp : val["inputs"].asArray().unwrapOr(std::vector<matjson::Value>())) {
                 Input input;
-                input.player2 = inp.value("2p", false);
-                input.button = inp.value("btn", 1);
-                input.down = inp.value("down", false);
-                input.frame = inp.value("frame", 0);
+                input.player2 = inp["2p"].asBool().unwrapOr(false);
+                input.button = inp["btn"].asInt().unwrapOr(1);
+                input.down = inp["down"].asBool().unwrapOr(false);
+                input.frame = inp["frame"].asInt().unwrapOr(0);
                 if (inp.contains("correction")) {
                     auto& c = inp["correction"];
-                    input.correction.nodeXPos = c.value("nodeXPos", 0.0f);
-                    input.correction.nodeYPos = c.value("nodeYPos", 0.0f);
-                    input.correction.player2 = c.value("player2", false);
-                    input.correction.rotation = c.value("rotation", 0.0f);
-                    input.correction.xPos = c.value("xPos", 0.0f);
-                    input.correction.yPos = c.value("yPos", 0.0f);
-                    input.correction.yVel = c.value("yVel", 0.0f);
+                    input.correction.nodeXPos = static_cast<float>(c["nodeXPos"].asDouble().unwrapOr(0.0));
+                    input.correction.nodeYPos = static_cast<float>(c["nodeYPos"].asDouble().unwrapOr(0.0));
+                    input.correction.player2 = c["player2"].asBool().unwrapOr(false);
+                    input.correction.rotation = static_cast<float>(c["rotation"].asDouble().unwrapOr(0.0));
+                    input.correction.xPos = static_cast<float>(c["xPos"].asDouble().unwrapOr(0.0));
+                    input.correction.yPos = static_cast<float>(c["yPos"].asDouble().unwrapOr(0.0));
+                    input.correction.yVel = static_cast<float>(c["yVel"].asDouble().unwrapOr(0.0));
                 }
                 replay.inputs.push_back(input);
             }
@@ -84,7 +84,7 @@ public:
     }
 
     static std::string writeJSON(const Replay& replay) {
-        nlohmann::json j;
+        matjson::Value j;
         j["author"] = replay.author;
         j["description"] = replay.description;
         j["duration"] = replay.duration;
@@ -94,16 +94,20 @@ public:
         j["seed"] = replay.seed;
         j["coins"] = replay.coins;
         j["ldm"] = replay.ldm;
-        j["bot"] = {{"name", replay.bot.name}, {"version", replay.bot.version}};
-        j["level"] = {{"id", replay.level.id}, {"name", replay.level.name}};
-        nlohmann::json inputs = nlohmann::json::array();
+        j["bot"] = matjson::Value::object();
+        j["bot"]["name"] = replay.bot.name;
+        j["bot"]["version"] = replay.bot.version;
+        j["level"] = matjson::Value::object();
+        j["level"]["id"] = replay.level.id;
+        j["level"]["name"] = replay.level.name;
+        std::vector<matjson::Value> inputs;
         for (const auto& input : replay.inputs) {
-            nlohmann::json inp;
+            matjson::Value inp;
             inp["2p"] = input.player2;
             inp["btn"] = input.button;
             inp["down"] = input.down;
             inp["frame"] = input.frame;
-            nlohmann::json corr;
+            matjson::Value corr;
             corr["nodeXPos"] = input.correction.nodeXPos;
             corr["nodeYPos"] = input.correction.nodeYPos;
             corr["player2"] = input.correction.player2;
