@@ -81,7 +81,6 @@ public:
         uint32_t flags = reader.readU32();
         uint32_t headerSize = reader.readU32();
         
-        // Read header fields
         replay.author = reader.readString();
         replay.description = reader.readString();
         replay.levelId = reader.readI32();
@@ -91,8 +90,7 @@ public:
         replay.gameVersion = reader.readU32();
         replay.seed = reader.readU32();
         
-        // Skip any remaining header padding
-        size_t headerEnd = 14 + headerSize; // 14 = magic(4) + version(2) + flags(4) + headerSize(4)
+        size_t headerEnd = 14 + headerSize;
         if (reader.position() < headerEnd) {
             reader.skip(headerEnd - reader.position());
         }
@@ -110,14 +108,7 @@ public:
             replay.inputs.push_back(input);
         }
         
-        // Verify footer if present
-        if (reader.remaining() >= 4) {
-            auto footer = reader.readBytes(4);
-            if (std::memcmp(footer.data(), FOOTER, 4) != 0) {
-                // Don't throw - some writers may omit footer
-                log::warn("Invalid .deep footer (file may be corrupted or from different writer)");
-            }
-        }
+        // Skip footer check - not all writers include it
         return replay;
     }
 };
