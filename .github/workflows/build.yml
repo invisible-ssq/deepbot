@@ -18,10 +18,10 @@ jobs:
       - name: Cache Geode SDK
         uses: actions/cache@v4
         with:
-          path: ~/.geode
-          key: geode-sdk-android64-v3-${{ hashFiles('**/CMakeLists.txt') }}
+          path: ~/geode-sdk
+          key: geode-sdk-android64-v4-${{ hashFiles('**/CMakeLists.txt') }}
           restore-keys: |
-            geode-sdk-android64-v3-
+            geode-sdk-android64-v4-
 
       - name: Setup NDK
         uses: nttld/setup-ndk@v1
@@ -29,31 +29,31 @@ jobs:
           ndk-version: r26b
           add-to-path: true
 
-      - name: Install Geode CLI
+      - name: Download & Install Geode SDK
         run: |
-          curl -L "https://github.com/geode-sdk/cli/releases/download/v3.8.0/geode-cli-v3.8.0-linux.zip" -o /tmp/geode-cli.zip
-          unzip -o /tmp/geode-cli.zip -d /tmp/geode-cli
-          sudo mv /tmp/geode-cli/geode /usr/local/bin/
-          geode --version
-
-      - name: Setup Geode Profile (non-interactive)
-        run: |
-          mkdir -p ~/.config/geode
-          # Create profile via geode CLI directly
-          geode profile new default --path ~/.geode/sdk || true
-          geode profile switch default || true
-
-      - name: Install SDK & Fix Codegen
-        run: |
-          export GEODE_SDK=~/.geode/sdk
-          geode sdk install
-          geode sdk install-binaries
-          find ~/.geode -name "Codegen" -type f -exec chmod +x {} \; 2>/dev/null || true
-          find ~/.geode -name "codegen" -type f -exec chmod +x {} \; 2>/dev/null || true
+          export GEODE_SDK=$HOME/geode-sdk
+          mkdir -p $GEODE_SDK
+          
+          # Download SDK source (zipball of repo)
+          if [ ! -d "$GEODE_SDK/CMakeLists.txt" ]; then
+            curl -L "https://github.com/geode-sdk/geode/archive/refs/tags/v5.8.2.zip" -o /tmp/geode-src.zip
+            unzip -o /tmp/geode-src.zip -d /tmp/geode-src
+            cp -r /tmp/geode-src/geode-5.8.2/* $GEODE_SDK/
+          fi
+          
+          # Download prebuilt Android64 binaries
+          mkdir -p $GEODE_SDK/bin
+          curl -L "https://github.com/geode-sdk/geode/releases/download/v5.8.2/geode-v5.8.2-android64.zip" -o /tmp/geode-bin.zip
+          unzip -o /tmp/geode-bin.zip -d $GEODE_SDK/bin/
+          
+          # Fix Codegen permissions
+          find $GEODE_SDK -name "Codegen" -type f -exec chmod +x {} \; 2>/dev/null || true
+          find $GEODE_SDK -name "codegen" -type f -exec chmod +x {} \; 2>/dev/null || true
+          
+          echo "GEODE_SDK=$GEODE_SDK" >> $GITHUB_ENV
 
       - name: Configure & Build
         run: |
-          export GEODE_SDK=~/.geode/sdk
           cmake -B build \
             -S . \
             -DCMAKE_BUILD_TYPE=Release \
