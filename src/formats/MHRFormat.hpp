@@ -1,6 +1,5 @@
 #pragma once
 #include <vector>
-#include <cstdint>
 #include <string>
 #include <nlohmann/json.hpp>
 #include "../utils/BinaryReader.hpp"
@@ -43,7 +42,7 @@ public:
         }
         j["inputs"] = inputs;
 
-        std::string jsonStr = j.dump(2);
+        std::string jsonStr = j.dump(); // Compact, no indent
         return std::vector<uint8_t>(jsonStr.begin(), jsonStr.end());
     }
 
@@ -63,7 +62,7 @@ public:
                 input.down = inp.value("down", false);
                 input.player2 = inp.value("player2", false);
                 input.button = inp.value("button", 1);
-                if (input.button == 0) input.button = 1;
+                DeepParser::normalizeButton(input.button);
                 replay.inputs.push_back(input);
             }
         }
