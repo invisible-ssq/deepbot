@@ -26,7 +26,6 @@ public:
         writer.writeF64(replay.fps);
         writer.writeU32(static_cast<uint32_t>(replay.inputs.size()));
         for (const auto& input : replay.inputs) {
-            // Check for frame overflow (28 bits max)
             if (input.frame > 0x0FFFFFFF) {
                 throw std::runtime_error("SLC format: frame number too large (max 268,435,455)");
             }
@@ -53,15 +52,18 @@ public:
         }
         replay.fps = reader.readF64();
         uint32_t count = reader.readU32();
+        if (count > 10000000) {
+            throw std::runtime_error("SLC: suspicious input count");
+        }
         replay.inputs.reserve(count);
-        for (uint32_t i = 0; i < count; i++) {
+        for (uint32_t i = 0; i < count && reader.remaining() >= 4; i++) {
             uint32_t packed = reader.readU32();
             Input input;
             input.frame = packed >> 4;
             input.player2 = (packed & 0x8) != 0;
             input.down = (packed & 0x1) != 0;
             input.button = (packed >> 1) & 3;
-            DeepParser::normalizeButton(input.button);
+            normalizeButton(input.button);
             replay.inputs.push_back(input);
         }
         if (!reader.eof()) {
