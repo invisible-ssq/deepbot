@@ -1,5 +1,6 @@
 #include "InputRecorder.hpp"
 #include "../DeepBot.hpp"
+#include <Geode/modify/PlayLayer.hpp>
 #include <array>
 
 using namespace geode::prelude;
@@ -24,7 +25,6 @@ void InputRecorder::recordInput(bool down, bool player2, uint8_t button,
 
     if (!m_recording) return;
 
-    // Validate button index
     if (button == 0 || button > 3) button = 1;
 
     auto& lastDown = player2 ? m_lastP2Down : m_lastP1Down;
@@ -39,7 +39,7 @@ void InputRecorder::recordInput(bool down, bool player2, uint8_t button,
     #if defined(GEODE_IS_WINDOWS)
         time = playLayer->m_gameState.m_levelTime;
     #else
-        time = CCDirector::get()->getSeconds();
+        time = playLayer->m_gameState.m_levelTime;
     #endif
 
     TPSIndependentFrame frame;
@@ -66,7 +66,7 @@ double InputRecorder::getDuration() const {
 class $modify(PlayLayerRecorder, PlayLayer) {
     void handleButton(bool down, int button, bool player2) {
         PlayLayer::handleButton(down, button, player2);
-        auto& recorder = DeepBot::instance().getRecorder();
+        auto& recorder = deepbot::DeepBot::instance().getRecorder();
         if (!recorder.isRecording()) return;
 
         uint8_t btn = 1;
