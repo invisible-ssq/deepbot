@@ -3,6 +3,8 @@
 #include <vector>
 #include <algorithm>
 #include <cstring>
+#include <unordered_map>
+#include <nlohmann/json.hpp>
 #include "FormatRegistry.hpp"
 #include "DeepFormat.hpp"
 #include "TTR3Format.hpp"
@@ -39,26 +41,32 @@ public:
             if (std::memcmp(data.data(), "TTR3", 4) == 0) return "ttr3";
             if (std::memcmp(data.data(), "GDR", 3) == 0) {
                 if (data.size() > 3 && data[3] >= '0' && data[3] <= '9') return "gdr2";
-                return "gdr"; // FIXED: was "gdr2"
+                return "gdr";
             }
             if (std::memcmp(data.data(), "YBOT", 4) == 0) return "ybot";
             if (std::memcmp(data.data(), "ZBF", 3) == 0) return "zbf";
             if (std::memcmp(data.data(), "ECHO", 4) == 0) return "echo";
+        }
+        if (data.size() >= 3) {
             if (std::memcmp(data.data(), "XD", 2) == 0) return "xd";
             if (std::memcmp(data.data(), "RE2", 3) == 0) return "re2";
+           ";
             if (std::memcmp(data.data(), "RE3", 3) == 0) return "re3";
             if (std::memcmp(data.data(), "RE4", 3) == 0) return "re4";
             if (std::memcmp(data.data(), "SILL", 4) == 0) return "slc";
-            if (data.size() >= 8 && std::memcmp(data.data(), "SLC3RPLY", 8) == 0) return "slc";
         }
+        if (data.size() >= 8 && std::memcmp(data.data(), "SLC3RPLY", 8) == 0) return "slc";
 
         // Check for JSON formats using proper JSON validation
         if (data.size() > 0 && (data[0] == '{' || data[0] == '[')) {
             try {
                 std::string content(data.begin(), data.end());
-                auto j = nlohmann::json::parse(content);
-                if (j.contains("framerate")) return "gdr";
-                if (j.contains("fps")) return "mhr";
+                // FIXED: validate JSON before parsing to avoid false positives
+                if (nlohmann::json::accept(content)) {
+                    auto j = nlohmann::json::parse(content);
+                    if (j.contains("framerate")) return "gdr";
+                    if (j.contains("fps")) return "mhr";
+                }
             } catch (...) {
                 // Not valid JSON, fall through
             }
@@ -540,4 +548,127 @@ private:
         replay.seed = unified.seed;
         for (const auto& input : unified.inputs) {
             SLCFormat::Input si;
-            si.frame = static_cast<uint32_t>(input.absoluteTime * unified.tps)
+            si.frame = static_cast<uint32_t>(input.absoluteTime * unified.tps);
+            si.down = input.down;
+            si.player2 = input.player2;
+            si.button = input.button;
+            replay.inputs.push_back(si);
+        }
+        return replay;
+    }
+
+    static XDFormat::Replay unifiedToXD(const UnifiedReplay& unified) {
+        XDFormat::Replay replay;
+        replay.fps = unified.tps;
+        for (const auto& input : unified.inputs) {
+            XDFormat::Input xi;
+            xi.frame = static_cast<uint32_t>(input.absoluteTime * unified.tps);
+            xi.down = input.down;
+            xi.player2 = input.player2;
+            xi.button = input.button;
+            replay.inputs.push_back(xi);
+        }
+        return replay;
+    }
+
+    static YBotFormat::Replay unifiedToYBot(const UnifiedReplay& unified) {
+        YBotFormat::Replay replay;
+        replay.fps = unified.tps;
+        for (const auto& input : unified.inputs) {
+            YBotFormat::Input yi;
+            yi.frame = static_cast<uint64_t>(input.absoluteTime * unified.tps);
+            yi.down = input.down;
+            yi.player2 = input.player2;
+            yi.button = input.button;
+            replay.inputs.push_back(yi);
+        }
+        return replay;
+    }
+
+    static TCMFormat::Replay unifiedToTCM(const UnifiedReplay& unified) {
+        TCMFormat::Replay replay;
+        replay.fps = unified.tps;
+        for (const auto& input : unified.inputs) {
+            TCMFormat::Input ti;
+            ti.frame = static_cast<uint32_t>(input.absoluteTime * unified.tps);
+            ti.down = input.down;
+            ti.player2 = input.player2;
+            ti.button = input.button;
+            replay.inputs.push_back(ti);
+        }
+        return replay;
+    }
+
+    static REFormat::Replay unifiedToRE(const UnifiedReplay& unified) {
+        REFormat::Replay replay;
+        replay.fps = unified.tps;
+        for (const auto& input : unified.inputs) {
+            REFormat::Input ri;
+            ri.frame = static_cast<uint32_t>(input.absoluteTime * unified.tps);
+            ri.down = input.down;
+            ri.player2 = input.player2;
+            ri.button = input.button;
+            replay.inputs.push_back(ri);
+        }
+        return replay;
+    }
+
+    static ZBotFormat::Replay unifiedToZBot(const UnifiedReplay& unified) {
+        ZBotFormat::Replay replay;
+        replay.fps = unified.tps;
+        for (const auto& input : unified.inputs) {
+            ZBotFormat::Input zi;
+            zi.frame = static_cast<uint32_t>(input.absoluteTime * unified.tps);
+            zi.down = input.down;
+            zi.player2 = input.player2;
+            zi.button = input.button;
+            replay.inputs.push_back(zi);
+        }
+        return replay;
+    }
+
+    static MHRFormat::Replay unifiedToMHR(const UnifiedReplay& unified) {
+        MHRFormat::Replay replay;
+        replay.fps = unified.tps;
+        replay.levelId = unified.seed;
+        for (const auto& input : unified.inputs) {
+            MHRFormat::Input mi;
+            mi.frame = static_cast<uint32_t>(input.absoluteTime * unified.tps);
+            mi.down = input.down;
+            mi.player2 = input.player2;
+            mi.button = input.button;
+            replay.inputs.push_back(mi);
+        }
+        return replay;
+    }
+
+    static EchoFormat::Replay unifiedToEcho(const UnifiedReplay& unified) {
+        EchoFormat::Replay replay;
+        replay.fps = unified.tps;
+        for (const auto& input : unified.inputs) {
+            EchoFormat::Input ei;
+            ei.frame = static_cast<uint64_t>(input.absoluteTime * unified.tps);
+            ei.down = input.down;
+            ei.player2 = input.player2;
+            ei.button = input.button;
+            replay.inputs.push_back(ei);
+        }
+        return replay;
+    }
+
+    static PlaintextFormat::Replay unifiedToPlaintext(const UnifiedReplay& unified) {
+        PlaintextFormat::Replay replay;
+        replay.fps = unified.tps;
+        for (const auto& input : unified.inputs) {
+            PlaintextFormat::Input pi;
+            pi.frame = static_cast<uint32_t>(input.absoluteTime * unified.tps);
+            pi.down = input.down;
+            pi.player2 = input.player2;
+            pi.button = input.button;
+            replay.inputs.push_back(pi);
+        }
+        return replay;
+    }
+};
+
+} // namespace deepbot
