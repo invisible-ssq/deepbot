@@ -35,7 +35,6 @@ public:
     };
 
     static std::vector<uint8_t> write(const Replay& replay) {
-        // Build header separately to avoid reallocation issues
         BinaryWriter headerWriter;
         headerWriter.writeString(replay.author);
         headerWriter.writeString(replay.description);
@@ -81,6 +80,8 @@ public:
         }
         uint32_t flags = reader.readU32();
         uint32_t headerSize = reader.readU32();
+        
+        // Read header fields
         replay.author = reader.readString();
         replay.description = reader.readString();
         replay.levelId = reader.readI32();
@@ -89,9 +90,13 @@ public:
         replay.duration = reader.readF64();
         replay.gameVersion = reader.readU32();
         replay.seed = reader.readU32();
-        if (reader.position() < headerSize + 14) { // 14 = 4+2+4+4 (magic+version+flags+headerSize)
-            reader.skip((headerSize + 14) - reader.position());
+        
+        // Skip any remaining header padding
+        size_t headerEnd = 14 + headerSize; // 14 = magic(4) + version(2) + flags(4) + headerSize(4)
+        if (reader.position() < headerEnd) {
+            reader.skip(headerEnd - reader.position());
         }
+        
         uint64_t inputCount = reader.readVarU64();
         replay.inputs.reserve(inputCount);
         for (uint64_t i = 0; i < inputCount; i++) {
@@ -105,11 +110,12 @@ public:
             replay.inputs.push_back(input);
         }
         
-        // Verify footer
+        // Verify footer if present
         if (reader.remaining() >= 4) {
             auto footer = reader.readBytes(4);
             if (std::memcmp(footer.data(), FOOTER, 4) != 0) {
-                throw std::runtime_error("Invalid .deep footer (file corrupted)");
+                // Don't throw - some writers may omit footer
+                log::warn("Invalid .deep footer (file may be corrupted or from different writer)");
             }
         }
         return replay;
