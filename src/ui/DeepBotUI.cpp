@@ -9,7 +9,7 @@ using namespace geode::prelude;
 
 namespace deepbot {
 
-// ===== Маленькая плавающая кнопка (перетаскиваемая) =====
+// ===== Маленькая плавающая кнопка D =====
 class DeepBotButton : public CCMenuItemSpriteExtra {
 public:
     static DeepBotButton* create() {
@@ -124,7 +124,6 @@ private:
     CCPoint m_dragStartTouch;
 };
 
-// ===== Хелпер для добавления кнопки =====
 static void addDeepBotButton(CCLayer* layer, const char* menuID, const char* btnID, CCPoint pos) {
     if (layer->getChildByID(menuID)) return;
 
@@ -140,7 +139,6 @@ static void addDeepBotButton(CCLayer* layer, const char* menuID, const char* btn
     layer->addChild(menu, 100);
 }
 
-// ===== ТОЛЬКО на паузе в уровне =====
 class $modify(PauseLayerDeepBot, PauseLayer) {
     void customSetup() override {
         PauseLayer::customSetup();
@@ -148,85 +146,155 @@ class $modify(PauseLayerDeepBot, PauseLayer) {
     }
 };
 
-// ===== Компактное меню =====
+// ===== DeepBotUI =====
 bool DeepBotUI::init() {
-    if (!FLAlertLayer::init(150)) return false;
+    if (!CCLayerColor::initWithColor(ccc4(0, 0, 0, 150))) return false;
 
     auto winSize = CCDirector::sharedDirector()->getWinSize();
 
-    if (m_mainLayer) {
-        m_mainLayer->removeAllChildrenWithCleanup(true);
-    }
-
+    // Фон панели
     auto* bg = CCScale9Sprite::create("GJ_square01.png");
-    bg->setContentSize({ 240, 130 });
+    bg->setContentSize({ 420, 280 });
     bg->setPosition(winSize.width / 2, winSize.height / 2);
-    m_mainLayer->addChild(bg);
+    bg->setColor({ 80, 60, 140 }); // Фиолетовый как у xdBot
+    this->addChild(bg);
 
+    // Заголовок
     auto* title = CCLabelBMFont::create("DeepBot", "bigFont.fnt");
-    title->setScale(0.35f);
-    title->setPosition(winSize.width / 2, winSize.height / 2 + 50);
-    m_mainLayer->addChild(title);
+    title->setScale(0.5f);
+    title->setPosition(winSize.width / 2, winSize.height / 2 + 120);
+    this->addChild(title);
 
-    m_statusLabel = CCLabelBMFont::create("Ready", "goldFont.fnt");
-    m_statusLabel->setScale(0.28f);
-    m_statusLabel->setPosition(winSize.width / 2, winSize.height / 2 + 32);
-    m_mainLayer->addChild(m_statusLabel);
-
+    // Кнопка закрытия
     auto* closeBtn = CCMenuItemSpriteExtra::create(
         CCSprite::createWithSpriteFrameName("GJ_closeBtn_001.png"),
         this,
         menu_selector(DeepBotUI::onClose)
     );
-    closeBtn->setScale(0.5f);
-    closeBtn->setPosition(winSize.width / 2 + 100, winSize.height / 2 + 50);
+    closeBtn->setScale(0.6f);
+    closeBtn->setPosition(winSize.width / 2 + 190, winSize.height / 2 + 120);
 
     auto* closeMenu = CCMenu::create();
     closeMenu->setPosition(0, 0);
     closeMenu->addChild(closeBtn);
-    m_mainLayer->addChild(closeMenu);
+    this->addChild(closeMenu);
 
-    auto* row1 = CCMenu::create();
-    row1->setPosition(winSize.width / 2, winSize.height / 2 + 5);
+    // Вкладки
+    m_tabMenu = CCMenu::create();
+    m_tabMenu->setPosition(winSize.width / 2, winSize.height / 2 + 90);
 
-    auto createBtn = [&](const char* text, SEL_MenuHandler handler) {
-        auto* spr = ButtonSprite::create(text, 50, true, "bigFont.fnt", "GJ_button_01.png", 20, 0.5f);
+    auto createTabBtn = [&](const char* text, SEL_MenuHandler handler, float x) {
+        auto* spr = ButtonSprite::create(text, 80, true, "bigFont.fnt", "GJ_button_01.png", 30, 0.55f);
         auto* btn = CCMenuItemSpriteExtra::create(spr, this, handler);
+        btn->setPosition(x, 0);
         return btn;
     };
 
-    m_recordBtn = createBtn("Rec", menu_selector(DeepBotUI::onRecord));
-    m_recordBtn->setPosition(-60, 0);
-    row1->addChild(m_recordBtn);
+    auto* macroTab = createTabBtn("Macro", menu_selector(DeepBotUI::onTabMacro), -80);
+    macroTab->setTag(0);
+    m_tabMenu->addChild(macroTab);
 
-    m_stopBtn = createBtn("Stop", menu_selector(DeepBotUI::onStop));
-    m_stopBtn->setPosition(0, 0);
+    auto* settingsTab = createTabBtn("Settings", menu_selector(DeepBotUI::onTabSettings), 80);
+    settingsTab->setTag(1);
+    m_tabMenu->addChild(settingsTab);
+
+    this->addChild(m_tabMenu);
+
+    // ===== Macro Tab =====
+    m_macroMenu = CCMenu::create();
+    m_macroMenu->setPosition(winSize.width / 2, winSize.height / 2 + 20);
+
+    // Actions label
+    auto* actionsLabel = CCLabelBMFont::create("Actions: 0", "chatFont.fnt");
+    actionsLabel->setScale(0.4f);
+    actionsLabel->setPosition(-140, 50);
+    actionsLabel->setTag(100);
+    m_macroMenu->addChild(actionsLabel);
+
+    // Record button
+    auto* recSpr = CCSprite::create("GJ_button_01.png");
+    recSpr->setScale(0.8f);
+    auto* recLabel = CCLabelBMFont::create("Record", "bigFont.fnt");
+    recLabel->setScale(0.4f);
+    recLabel->setPosition(recSpr->getContentSize() / 2);
+    recSpr->addChild(recLabel);
+
+    m_recordBtn = CCMenuItemSpriteExtra::create(recSpr, this, menu_selector(DeepBotUI::onRecord));
+    m_recordBtn->setPosition(-100, 0);
+    m_macroMenu->addChild(m_recordBtn);
+
+    // Play button
+    auto* playSpr = CCSprite::create("GJ_button_01.png");
+    playSpr->setScale(0.8f);
+    auto* playLabel = CCLabelBMFont::create("Play", "bigFont.fnt");
+    playLabel->setScale(0.4f);
+    playLabel->setPosition(playSpr->getContentSize() / 2);
+    playSpr->addChild(playLabel);
+
+    auto* playBtn = CCMenuItemSpriteExtra::create(playSpr, this, menu_selector(DeepBotUI::onPlay));
+    playBtn->setPosition(0, 0);
+    m_macroMenu->addChild(playBtn);
+
+    // Stop button (hidden by default)
+    auto* stopSpr = CCSprite::create("GJ_button_04.png");
+    stopSpr->setScale(0.8f);
+    auto* stopLabel = CCLabelBMFont::create("Stop", "bigFont.fnt");
+    stopLabel->setScale(0.4f);
+    stopLabel->setPosition(stopSpr->getContentSize() / 2);
+    stopSpr->addChild(stopLabel);
+
+    m_stopBtn = CCMenuItemSpriteExtra::create(stopSpr, this, menu_selector(DeepBotUI::onStop));
+    m_stopBtn->setPosition(-100, 0);
     m_stopBtn->setVisible(false);
-    row1->addChild(m_stopBtn);
+    m_macroMenu->addChild(m_stopBtn);
 
-    m_playBtn = createBtn("Play", menu_selector(DeepBotUI::onPlay));
-    m_playBtn->setPosition(60, 0);
-    row1->addChild(m_playBtn);
+    // Save / Load / Edit row
+    auto* saveBtn = CCMenuItemSpriteExtra::create(
+        ButtonSprite::create("Save", 60, true, "bigFont.fnt", "GJ_button_01.png", 25, 0.5f),
+        this,
+        menu_selector(DeepBotUI::onSave)
+    );
+    saveBtn->setPosition(-80, -50);
+    m_macroMenu->addChild(saveBtn);
 
-    m_mainLayer->addChild(row1);
+    auto* loadBtn = CCMenuItemSpriteExtra::create(
+        ButtonSprite::create("Load", 60, true, "bigFont.fnt", "GJ_button_01.png", 25, 0.5f),
+        this,
+        menu_selector(DeepBotUI::onLoad)
+    );
+    loadBtn->setPosition(0, -50);
+    m_macroMenu->addChild(loadBtn);
 
-    auto* row2 = CCMenu::create();
-    row2->setPosition(winSize.width / 2, winSize.height / 2 - 28);
+    auto* editBtn = CCMenuItemSpriteExtra::create(
+        ButtonSprite::create("Edit", 60, true, "bigFont.fnt", "GJ_button_01.png", 25, 0.5f),
+        this,
+        menu_selector(DeepBotUI::onPlay) // placeholder
+    );
+    editBtn->setPosition(80, -50);
+    m_macroMenu->addChild(editBtn);
 
-    auto* saveBtn = createBtn("Save", menu_selector(DeepBotUI::onSave));
-    saveBtn->setPosition(-45, 0);
-    row2->addChild(saveBtn);
+    this->addChild(m_macroMenu);
 
-    auto* loadBtn = createBtn("Load", menu_selector(DeepBotUI::onLoad));
-    loadBtn->setPosition(45, 0);
-    row2->addChild(loadBtn);
+    // ===== Settings Tab (hidden by default) =====
+    m_settingsMenu = CCMenu::create();
+    m_settingsMenu->setPosition(winSize.width / 2, winSize.height / 2);
+    m_settingsMenu->setVisible(false);
 
-    m_mainLayer->addChild(row2);
+    auto* settingsLabel = CCLabelBMFont::create("Settings placeholder", "chatFont.fnt");
+    settingsLabel->setScale(0.5f);
+    m_settingsMenu->addChild(settingsLabel);
 
-    auto* ver = CCLabelBMFont::create("v1.0.1", "chatFont.fnt");
-    ver->setScale(0.3f);
-    ver->setPosition(winSize.width / 2, winSize.height / 2 - 52);
-    m_mainLayer->addChild(ver);
+    this->addChild(m_settingsMenu);
+
+    // Info button
+    auto* infoBtn = CCMenuItemSpriteExtra::create(
+        CCSprite::createWithSpriteFrameName("GJ_infoIcon_001.png"),
+        this,
+        menu_selector(DeepBotUI::onClose)
+    );
+    infoBtn->setScale(0.6f);
+    infoBtn->setPosition(winSize.width / 2 + 150, winSize.height / 2 + 120);
+    closeMenu->addChild(infoBtn);
 
     refreshButtons();
     return true;
@@ -243,26 +311,47 @@ DeepBotUI* DeepBotUI::create() {
 }
 
 void DeepBotUI::show() {
-    this->setZOrder(1000);
-    this->setTouchPriority(-1000);
-    FLAlertLayer::show();
+    auto scene = CCDirector::sharedDirector()->getRunningScene();
+    scene->addChild(this, 1000);
+}
+
+void DeepBotUI::hide() {
+    this->removeFromParentAndCleanup(true);
 }
 
 void DeepBotUI::onClose(CCObject*) {
-    this->setKeypadEnabled(false);
-    this->removeFromParentAndCleanup(true);
+    hide();
+}
+
+void DeepBotUI::switchTab(DeepBotTab tab) {
+    m_currentTab = tab;
+    m_macroMenu->setVisible(tab == DeepBotTab::Macro);
+    m_settingsMenu->setVisible(tab == DeepBotTab::Settings);
+}
+
+void DeepBotUI::onTabMacro(CCObject*) {
+    switchTab(DeepBotTab::Macro);
+}
+
+void DeepBotUI::onTabSettings(CCObject*) {
+    switchTab(DeepBotTab::Settings);
 }
 
 void DeepBotUI::refreshButtons() {
     auto& bot = DeepBot::instance();
     if (m_recordBtn) m_recordBtn->setVisible(!bot.isRecording());
     if (m_stopBtn) m_stopBtn->setVisible(bot.isRecording());
+    
+    // Update actions count
+    if (m_macroMenu) {
+        auto* actionsLabel = static_cast<CCLabelBMFont*>(m_macroMenu->getChildByTag(100));
+        if (actionsLabel) {
+            actionsLabel->setString(("Actions: " + std::to_string(bot.getFrameCount())).c_str());
+        }
+    }
 }
 
 void DeepBotUI::updateStatus(const std::string& status) {
-    if (m_statusLabel) {
-        m_statusLabel->setString(status.c_str());
-    }
     refreshButtons();
 }
 
@@ -271,13 +360,10 @@ void DeepBotUI::onRecord(CCObject*) {
     if (bot.isRecording()) return;
 
     auto* playLayer = PlayLayer::get();
-    if (!playLayer) {
-        updateStatus("Not in level!");
-        return;
-    }
+    if (!playLayer) return;
 
     bot.startRecording();
-    updateStatus("Recording...");
+    refreshButtons();
 }
 
 void DeepBotUI::onStop(CCObject*) {
@@ -285,124 +371,317 @@ void DeepBotUI::onStop(CCObject*) {
     if (!bot.isRecording()) return;
 
     bot.stopRecording();
-    updateStatus(std::to_string(bot.getFrameCount()) + " frames");
+    refreshButtons();
 }
 
 void DeepBotUI::onPlay(CCObject*) {
     auto& bot = DeepBot::instance();
-    if (bot.isRecording()) {
-        updateStatus("Stop first!");
-        return;
-    }
-    if (bot.isPlaying()) return;
-    if (bot.getFrameCount() == 0) {
-        updateStatus("No macro!");
-        return;
-    }
+    if (bot.isRecording() || bot.isPlaying()) return;
+    if (bot.getFrameCount() == 0) return;
 
     bot.startPlayback();
-    updateStatus("Playing...");
+    refreshButtons();
 }
 
-// ===== Save: автосохранение + меню форматов =====
 void DeepBotUI::onSave(CCObject*) {
+    auto* saveLayer = DeepBotSaveLayer::create();
+    saveLayer->show();
+}
+
+void DeepBotUI::onLoad(CCObject*) {
+    auto* loadLayer = DeepBotLoadLayer::create();
+    loadLayer->show();
+}
+
+// ===== DeepBotLoadLayer =====
+bool DeepBotLoadLayer::init() {
+    if (!CCLayerColor::initWithColor(ccc4(0, 0, 0, 150))) return false;
+
+    auto winSize = CCDirector::sharedDirector()->getWinSize();
+
+    auto* bg = CCScale9Sprite::create("GJ_square01.png");
+    bg->setContentSize({ 380, 300 });
+    bg->setPosition(winSize.width / 2, winSize.height / 2);
+    bg->setColor({ 60, 60, 60 });
+    this->addChild(bg);
+
+    auto* title = CCLabelBMFont::create("Load Macro", "bigFont.fnt");
+    title->setScale(0.5f);
+    title->setPosition(winSize.width / 2, winSize.height / 2 + 130);
+    this->addChild(title);
+
+    // Close
+    auto* closeBtn = CCMenuItemSpriteExtra::create(
+        CCSprite::createWithSpriteFrameName("GJ_closeBtn_001.png"),
+        this,
+        menu_selector(DeepBotLoadLayer::onClose)
+    );
+    closeBtn->setScale(0.6f);
+
+    auto* closeMenu = CCMenu::create();
+    closeMenu->setPosition(winSize.width / 2 + 170, winSize.height / 2 + 130);
+    closeMenu->addChild(closeBtn);
+    this->addChild(closeMenu);
+
+    refreshList();
+    return true;
+}
+
+DeepBotLoadLayer* DeepBotLoadLayer::create() {
+    auto* ret = new DeepBotLoadLayer();
+    if (ret && ret->init()) {
+        ret->autorelease();
+        return ret;
+    }
+    delete ret;
+    return nullptr;
+}
+
+void DeepBotLoadLayer::show() {
+    auto scene = CCDirector::sharedDirector()->getRunningScene();
+    scene->addChild(this, 2000);
+}
+
+void DeepBotLoadLayer::hide() {
+    this->removeFromParentAndCleanup(true);
+}
+
+void DeepBotLoadLayer::refreshList() {
+    // List macros from /game/macros/
+    auto macroDir = geode::dirs::getGameDir() / "macros";
+    
+    auto* listMenu = CCMenu::create();
+    listMenu->setPosition(CCDirector::sharedDirector()->getWinSize().width / 2 - 150,
+                          CCDirector::sharedDirector()->getWinSize().height / 2 + 80);
+
+    float y = 0;
+    try {
+        for (const auto& entry : std::filesystem::directory_iterator(macroDir)) {
+            if (!entry.is_regular_file()) continue;
+            
+            auto filename = entry.path().filename().string();
+            auto ext = entry.path().extension().string();
+
+            // Name label
+            auto* nameLabel = CCLabelBMFont::create(filename.c_str(), "chatFont.fnt");
+            nameLabel->setScale(0.35f);
+            nameLabel->setAnchorPoint({ 0, 0.5f });
+            nameLabel->setPosition(30, y);
+
+            // Checkbox
+            auto* checkOff = CCSprite::createWithSpriteFrameName("GJ_checkOff_001.png");
+            checkOff->setScale(0.5f);
+            auto* checkOn = CCSprite::createWithSpriteFrameName("GJ_checkOn_001.png");
+            checkOn->setScale(0.5f);
+            auto* checkBtn = CCMenuItemToggler::create(checkOff, checkOn, this, nullptr);
+            checkBtn->setPosition(0, y);
+
+            // Delete
+            auto* delBtn = CCMenuItemSpriteExtra::create(
+                CCSprite::createWithSpriteFrameName("GJ_trashBtn_001.png"),
+                this,
+                menu_selector(DeepBotLoadLayer::onDeleteMacro)
+            );
+            delBtn->setScale(0.4f);
+            delBtn->setPosition(200, y);
+            delBtn->setTag(static_cast<int>(y));
+
+            // Load button
+            auto* loadBtn = CCMenuItemSpriteExtra::create(
+                ButtonSprite::create("Load", 50, true, "bigFont.fnt", "GJ_button_01.png", 20, 0.45f),
+                this,
+                menu_selector(DeepBotLoadLayer::onLoadMacro)
+            );
+            loadBtn->setPosition(280, y);
+            loadBtn->setUserData(const_cast<char*>(filename.c_str()));
+
+            listMenu->addChild(nameLabel);
+            listMenu->addChild(checkBtn);
+            listMenu->addChild(delBtn);
+            listMenu->addChild(loadBtn);
+
+            y -= 30;
+        }
+    } catch (...) {}
+
+    this->addChild(listMenu);
+}
+
+void DeepBotLoadLayer::onLoadMacro(CCObject* sender) {
+    auto* btn = static_cast<CCMenuItemSpriteExtra*>(sender);
+    auto* filename = static_cast<char*>(btn->getUserData());
+    if (!filename) return;
+
+    auto path = (geode::dirs::getGameDir() / "macros" / filename).string();
     auto& bot = DeepBot::instance();
-    if (bot.getFrameCount() == 0) {
-        updateStatus("Nothing to save!");
-        return;
+    
+    std::string ext = std::filesystem::path(filename).extension().string();
+    if (!ext.empty() && ext[0] == '.') ext = ext.substr(1);
+    
+    bot.loadFromFile(path, ext);
+    hide();
+}
+
+void DeepBotLoadLayer::onDeleteMacro(CCObject*) {
+    // TODO
+}
+
+void DeepBotLoadLayer::onClose(CCObject*) {
+    hide();
+}
+
+// ===== DeepBotSaveLayer =====
+bool DeepBotSaveLayer::init() {
+    if (!CCLayerColor::initWithColor(ccc4(0, 0, 0, 150))) return false;
+
+    auto winSize = CCDirector::sharedDirector()->getWinSize();
+
+    auto* bg = CCScale9Sprite::create("GJ_square01.png");
+    bg->setContentSize({ 380, 320 });
+    bg->setPosition(winSize.width / 2, winSize.height / 2);
+    bg->setColor({ 60, 60, 60 });
+    this->addChild(bg);
+
+    auto* title = CCLabelBMFont::create("Save Macro", "bigFont.fnt");
+    title->setScale(0.5f);
+    title->setPosition(winSize.width / 2, winSize.height / 2 + 140);
+    this->addChild(title);
+
+    // Close
+    auto* closeBtn = CCMenuItemSpriteExtra::create(
+        CCSprite::createWithSpriteFrameName("GJ_closeBtn_001.png"),
+        this,
+        menu_selector(DeepBotSaveLayer::onClose)
+    );
+    closeBtn->setScale(0.6f);
+
+    auto* closeMenu = CCMenu::create();
+    closeMenu->setPosition(winSize.width / 2 + 170, winSize.height / 2 + 140);
+    closeMenu->addChild(closeBtn);
+    this->addChild(closeMenu);
+
+    auto* menu = CCMenu::create();
+    menu->setPosition(winSize.width / 2, winSize.height / 2);
+
+    // Name field (placeholder using label)
+    auto* nameLabel = CCLabelBMFont::create("Macro Name", "chatFont.fnt");
+    nameLabel->setScale(0.4f);
+    nameLabel->setPosition(0, 100);
+    menu->addChild(nameLabel);
+
+    // Author
+    auto* authorLabel = CCLabelBMFont::create("Author (optional)", "chatFont.fnt");
+    authorLabel->setScale(0.35f);
+    authorLabel->setPosition(0, 60);
+    menu->addChild(authorLabel);
+
+    // Description
+    auto* descLabel = CCLabelBMFont::create("Description (optional)", "chatFont.fnt");
+    descLabel->setScale(0.35f);
+    descLabel->setPosition(0, 20);
+    menu->addChild(descLabel);
+
+    // Save button
+    auto* saveBtn = CCMenuItemSpriteExtra::create(
+        ButtonSprite::create("Save", 80, true, "bigFont.fnt", "GJ_button_01.png", 35, 0.6f),
+        this,
+        menu_selector(DeepBotSaveLayer::onSaveConfirm)
+    );
+    saveBtn->setPosition(0, -40);
+    menu->addChild(saveBtn);
+
+    // Format buttons row
+    const char* formats[] = {"CML", "JSON", "GDR", "GDR2"};
+    float x = -120;
+    for (int i = 0; i < 4; i++) {
+        auto* checkOff = CCSprite::createWithSpriteFrameName("GJ_checkOff_001.png");
+        checkOff->setScale(0.4f);
+        auto* checkOn = CCSprite::createWithSpriteFrameName("GJ_checkOn_001.png");
+        checkOn->setScale(0.4f);
+        
+        auto* toggle = CCMenuItemToggler::create(checkOff, checkOn, this, menu_selector(DeepBotSaveLayer::onFormatSelect));
+        toggle->setPosition(x, -90);
+        toggle->setTag(i);
+        if (i == 0) toggle->toggle(true);
+        
+        auto* fmtLabel = CCLabelBMFont::create(formats[i], "chatFont.fnt");
+        fmtLabel->setScale(0.3f);
+        fmtLabel->setPosition(x + 20, -90);
+        
+        menu->addChild(toggle);
+        menu->addChild(fmtLabel);
+        x += 70;
     }
 
-    // Автосохранение в /game/macros/
+    // Other button
+    auto* otherBtn = CCMenuItemSpriteExtra::create(
+        ButtonSprite::create("Other", 60, true, "bigFont.fnt", "GJ_button_04.png", 25, 0.5f),
+        this,
+        menu_selector(DeepBotSaveLayer::onOtherFormat)
+    );
+    otherBtn->setPosition(0, -130);
+    menu->addChild(otherBtn);
+
+    this->addChild(menu);
+    return true;
+}
+
+DeepBotSaveLayer* DeepBotSaveLayer::create() {
+    auto* ret = new DeepBotSaveLayer();
+    if (ret && ret->init()) {
+        ret->autorelease();
+        return ret;
+    }
+    delete ret;
+    return nullptr;
+}
+
+void DeepBotSaveLayer::show() {
+    auto scene = CCDirector::sharedDirector()->getRunningScene();
+    scene->addChild(this, 2000);
+}
+
+void DeepBotSaveLayer::hide() {
+    this->removeFromParentAndCleanup(true);
+}
+
+void DeepBotSaveLayer::onFormatSelect(CCObject* sender) {
+    auto* toggle = static_cast<CCMenuItemToggler*>(sender);
+    m_selectedFormat = toggle->getTag();
+    
+    // Untoggle others
+    if (auto* menu = toggle->getParent()) {
+        for (int i = 0; i < 4; i++) {
+            if (i == m_selectedFormat) continue;
+            if (auto* other = static_cast<CCMenuItemToggler*>(menu->getChildByTag(i))) {
+                other->toggle(false);
+            }
+        }
+    }
+}
+
+void DeepBotSaveLayer::onSaveConfirm(CCObject*) {
+    auto& bot = DeepBot::instance();
+    
+    const char* formatMap[] = {"deep", "ttr3", "gdr", "gdr2"};
+    auto format = formatMap[m_selectedFormat];
+    
     auto macroDir = geode::dirs::getGameDir() / "macros";
     std::error_code ec;
     std::filesystem::create_directories(macroDir, ec);
-
-    auto timestamp = std::to_string(std::time(nullptr));
-    auto autoPath = macroDir / ("macro_" + timestamp + ".deep");
-    bot.saveToFile(autoPath.string(), "deep");
-
-    // Меню выбора формата
-    auto winSize = CCDirector::sharedDirector()->getWinSize();
     
-    auto* formatMenu = CCMenu::create();
-    formatMenu->setPosition(winSize.width / 2, winSize.height / 2);
-    formatMenu->setID("deepbot-format-menu");
-
-    auto* fbg = CCScale9Sprite::create("GJ_square01.png");
-    fbg->setContentSize({ 200, 180 });
-    fbg->setPosition(0, 0);
-    formatMenu->addChild(fbg, -1);
-
-    auto* ftitle = CCLabelBMFont::create("Save As", "bigFont.fnt");
-    ftitle->setScale(0.35f);
-    ftitle->setPosition(0, 70);
-    formatMenu->addChild(ftitle);
-
-    auto* finfo = CCLabelBMFont::create("Auto-saved to macros/", "chatFont.fnt");
-    finfo->setScale(0.25f);
-    finfo->setPosition(0, 55);
-    formatMenu->addChild(finfo);
-
-    const char* formats[] = {".deep", ".ttr3", ".gdr", ".gdr2", ".slc", ".xd", ".ybot", ".txt"};
-    float y = 30;
-    for (int i = 0; i < 8; i++) {
-        auto* btn = CCMenuItemSpriteExtra::create(
-            ButtonSprite::create(formats[i], 70, true, "bigFont.fnt", "GJ_button_01.png", 25, 0.45f),
-            this,
-            menu_selector(DeepBotUI::onSaveFormat)
-        );
-        btn->setPosition((i % 2 == 0) ? -50 : 50, y);
-        btn->setTag(i);
-        formatMenu->addChild(btn);
-        if (i % 2 == 1) y -= 25;
-    }
-
-    auto* customBtn = CCMenuItemSpriteExtra::create(
-        ButtonSprite::create("Other...", 100, true, "bigFont.fnt", "GJ_button_04.png", 30, 0.5f),
-        this,
-        menu_selector(DeepBotUI::onSaveCustomFormat)
-    );
-    customBtn->setPosition(0, -65);
-    formatMenu->addChild(customBtn);
-
-    auto* fcloseBtn = CCMenuItemSpriteExtra::create(
-        CCSprite::createWithSpriteFrameName("GJ_closeBtn_001.png"),
-        this,
-        menu_selector(DeepBotUI::onClose)
-    );
-    fcloseBtn->setScale(0.5f);
-    fcloseBtn->setPosition(85, 75);
-    formatMenu->addChild(fcloseBtn);
-
-    this->addChild(formatMenu, 2000);
-}
-
-void DeepBotUI::onSaveFormat(CCObject* sender) {
-    const char* formats[] = {"deep", "ttr3", "gdr", "gdr2", "slc", "xd", "ybot", "txt"};
-    int idx = sender->getTag();
-    if (idx < 0 || idx > 7) return;
-
-    auto& bot = DeepBot::instance();
-    auto macroDir = geode::dirs::getGameDir() / "macros";
     auto timestamp = std::to_string(std::time(nullptr));
-    auto path = macroDir / ("macro_" + timestamp + "." + formats[idx]);
-
-    if (bot.saveToFile(path.string(), formats[idx])) {
-        updateStatus("Saved ." + std::string(formats[idx]));
-    } else {
-        updateStatus("Save failed!");
-    }
-
-    this->removeChildByID("deepbot-format-menu");
+    auto path = macroDir / ("macro_" + timestamp + "." + format);
+    
+    bot.saveToFile(path.string(), format);
+    hide();
 }
 
-void DeepBotUI::onSaveCustomFormat(CCObject*) {
+void DeepBotSaveLayer::onOtherFormat(CCObject*) {
     geode::async::spawn(
         file::pick(file::PickMode::SaveFile, {
             .defaultPath = "macro",
-            .filters = {
-                { .description = "All files", .files = { "*" }}
-            }
+            .filters = {{ .description = "All files", .files = { "*" } }}
         }),
         [](Result<std::optional<std::filesystem::path>> result) {
             if (result.isErr()) return;
@@ -417,41 +696,11 @@ void DeepBotUI::onSaveCustomFormat(CCObject*) {
             bot.saveToFile(pathOpt->string(), ext);
         }
     );
+    hide();
 }
 
-void DeepBotUI::onLoad(CCObject*) {
-    geode::async::spawn(
-        file::pick(file::PickMode::OpenFile, {
-            .defaultPath = "",
-            .filters = {
-                { .description = "Macro files", .files = {
-                    "*.deep", "*.ttr3", "*.gdr", "*.gdr2", "*.slc", "*.cml",
-                    "*.xd", "*.ybot", "*.ybf", "*.tcm", "*.re", "*.re2", "*.re3", "*.re4",
-                    "*.zbf", "*.mhr", "*.echo", "*.txt"
-                }}
-            }
-        }),
-        [](Result<std::optional<std::filesystem::path>> result) {
-            if (result.isErr()) return;
-            auto pathOpt = result.unwrap();
-            if (!pathOpt.has_value()) return;
-
-            auto& bot = DeepBot::instance();
-            std::string ext = pathOpt->extension().string();
-            if (!ext.empty() && ext[0] == '.') ext = ext.substr(1);
-            std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
-
-            bot.loadFromFile(pathOpt->string(), ext);
-        }
-    );
-}
-
-void DeepBotUI::onConvert(CCObject*) {
-    FLAlertLayer::create(
-        "Convert",
-        "Load a macro first, then use Save and choose the target format.",
-        "OK"
-    )->show();
+void DeepBotSaveLayer::onClose(CCObject*) {
+    hide();
 }
 
 } // namespace deepbot
