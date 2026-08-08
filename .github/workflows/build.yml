@@ -15,14 +15,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Cache Geode SDK
-        uses: actions/cache@v4
-        with:
-          path: ~/.geode
-          key: geode-sdk-android64-v16-${{ hashFiles('**/CMakeLists.txt') }}
-          restore-keys: |
-            geode-sdk-android64-v16-
-
       - name: Setup NDK r28b
         uses: nttld/setup-ndk@v1
         with:
@@ -34,7 +26,7 @@ jobs:
         with:
           combine: true
           target: Android64
-          sdk: 5.8.2
+          sdk: "5.8.2"
           cmake-args: "-DANDROID_PLATFORM=android-23"
 
       - name: Upload artifact
