@@ -45,7 +45,8 @@ public:
 
     static Replay read(const std::vector<uint8_t>& data) {
         std::string jsonStr(data.begin(), data.end());
-        auto val = matjson::Value::fromString(jsonStr).unwrapOr(matjson::Value());
+        auto parseResult = matjson::parse(jsonStr);
+        auto val = parseResult.isOk() ? parseResult.unwrap() : matjson::Value();
         Replay replay;
 
         replay.fps = val["fps"].asDouble().unwrapOr(240.0);
@@ -59,7 +60,7 @@ public:
                 input.down = inp["down"].asBool().unwrapOr(false);
                 input.player2 = inp["player2"].asBool().unwrapOr(false);
                 input.button = inp["button"].asInt().unwrapOr(1);
-                DeepParser::normalizeButton(input.button);
+                normalizeButton(input.button);
                 replay.inputs.push_back(input);
             }
         }
