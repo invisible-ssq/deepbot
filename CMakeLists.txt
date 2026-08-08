@@ -10,7 +10,7 @@ endif()
 
 add_subdirectory($ENV{GEODE_SDK} ${CMAKE_CURRENT_BINARY_DIR}/geode)
 
-file(GLOB_RECURSE SOURCES src/*.cpp)
+file(GLOB_RECURSE SOURCES src/*.cpp src/**/*.cpp)
 
 add_library(${PROJECT_NAME} SHARED ${SOURCES})
 
@@ -31,9 +31,11 @@ if(ANDROID)
         CXX_VISIBILITY_PRESET hidden
         VISIBILITY_INLINES_HIDDEN YES
     )
+else()
+    target_compile_definitions(${PROJECT_NAME} PRIVATE DEEPBOT_WINDOWS)
 endif()
 
-set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
-set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O3")
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -flto")
+set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O3 -flto")
 
-setup_geode_mod(${PROJECT_NAME})
+create_geode_file(${PROJECT_NAME})

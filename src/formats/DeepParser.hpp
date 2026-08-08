@@ -3,9 +3,6 @@
 #include <vector>
 #include <memory>
 #include <functional>
-#include <algorithm>
-#include <cctype>
-#include <cstring>
 #include "FormatRegistry.hpp"
 #include "DeepFormat.hpp"
 #include "TTR3Format.hpp"
@@ -23,12 +20,15 @@
 
 namespace deepbot {
 
+// Universal format converter
 class DeepParser {
 public:
+    // Format detection by file extension and content
     static std::string detectFormat(const std::string& path, const std::vector<uint8_t>& data) {
         std::string ext = path.substr(path.find_last_of(".") + 1);
-        for (auto& c : ext) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+        std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
 
+        // Check magic bytes for binary formats
         if (data.size() >= 4) {
             if (std::memcmp(data.data(), "DEEP", 4) == 0) return "deep";
             if (std::memcmp(data.data(), "TTR3", 4) == 0) return "ttr3";
@@ -44,19 +44,22 @@ public:
             if (std::memcmp(data.data(), "RE3", 3) == 0) return "re3";
             if (std::memcmp(data.data(), "RE4", 3) == 0) return "re4";
             if (std::memcmp(data.data(), "SILL", 4) == 0) return "slc";
-            if (data.size() >= 8 && std::memcmp(data.data(), "SLC3RPLY", 8) == 0) return "slc";
+            if (std::memcmp(data.data(), "SLC3RPLY", 8) == 0) return "slc";
         }
 
+        // Check for JSON formats
         if (data.size() > 0 && (data[0] == '{' || data[0] == '[')) {
-            std::string content(data.begin(), data.begin() + std::min(size_t(100), data.size()));
-            if (content.find("\"framerate\"") != std::string::npos) return "gdr";
-            if (content.find("\"fps\"") != std::string::npos) return "mhr";
+            std::string content(data.begin(), std::min(data.begin() + 100, data.end()));
+            if (content.find(""framerate"") != std::string::npos) return "gdr";
+            if (content.find(""fps"") != std::string::npos) return "mhr";
         }
 
+        // Check for text format
         if (data.size() > 0 && (data[0] == '#' || (data[0] >= '0' && data[0] <= '9'))) {
             return "txt";
         }
 
+        // Fallback to extension
         if (ext == "deep" || ext == "ttr3" || ext == "gdr" || ext == "gdr2" ||
             ext == "slc" || ext == "cml" || ext == "xd" || ext == "ybot" ||
             ext == "ybf" || ext == "tcm" || ext == "re" || ext == "re2" ||
@@ -68,6 +71,7 @@ public:
         return "";
     }
 
+    // Convert any format to UnifiedReplay
     static UnifiedReplay parse(const std::string& path, const std::vector<uint8_t>& data) {
         std::string format = detectFormat(path, data);
         if (format.empty()) {
@@ -134,6 +138,7 @@ public:
         throw std::runtime_error("Unsupported format: " + format);
     }
 
+    // Convert UnifiedReplay to any format
     static std::vector<uint8_t> serialize(const UnifiedReplay& replay, const std::string& format) {
         if (format == "deep") {
             auto deep = unifiedToDeep(replay);
@@ -196,6 +201,7 @@ public:
         throw std::runtime_error("Unsupported output format: " + format);
     }
 
+    // Get all supported formats
     static std::vector<std::string> getSupportedFormats() {
         return {
             "deep", "ttr3", "gdr", "gdr2", "slc", "cml",
@@ -204,6 +210,7 @@ public:
         };
     }
 
+    // Get format description
     static std::string getFormatDescription(const std::string& format) {
         static const std::unordered_map<std::string, std::string> descriptions = {
             {"deep", "deepbot Native (.deep)"},
@@ -230,6 +237,7 @@ public:
     }
 
 private:
+    // Conversion helpers: Format -> Unified
     static UnifiedReplay deepToUnified(const DeepFormat::Replay& replay) {
         UnifiedReplay unified;
         unified.author = replay.author;
@@ -441,6 +449,7 @@ private:
         return unified;
     }
 
+    // Conversion helpers: Unified -> Format
     static DeepFormat::Replay unifiedToDeep(const UnifiedReplay& unified) {
         DeepFormat::Replay replay;
         replay.author = unified.author;
