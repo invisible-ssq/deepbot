@@ -15,13 +15,6 @@
         "url": "https://github.com/goodxdeveloper/deepbot/issues"
     },
     "tags": ["bot", "macro", "utility", "free"],
-    "dependencies": [
-        {
-            "id": "geode.node-ids",
-            "version": ">=1.0.0",
-            "importance": "required"
-        }
-    ],
     "settings": {
         "show-button": {
             "name": "Show Menu Button",
