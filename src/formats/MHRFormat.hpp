@@ -54,14 +54,17 @@ public:
         replay.levelId = val["levelId"].asInt().unwrapOr(0);
 
         if (val.contains("inputs")) {
-            for (const auto& inp : val["inputs"].asArray().unwrapOr(std::vector<matjson::Value>())) {
-                Input input;
-                input.frame = inp["frame"].asInt().unwrapOr(0);
-                input.down = inp["down"].asBool().unwrapOr(false);
-                input.player2 = inp["player2"].asBool().unwrapOr(false);
-                input.button = inp["button"].asInt().unwrapOr(1);
-                normalizeButton(input.button);
-                replay.inputs.push_back(input);
+            auto inputsResult = val["inputs"].asArray();
+            if (inputsResult.isOk()) {
+                for (const auto& inp : inputsResult.unwrap()) {
+                    Input input;
+                    input.frame = inp["frame"].asInt().unwrapOr(0);
+                    input.down = inp["down"].asBool().unwrapOr(false);
+                    input.player2 = inp["player2"].asBool().unwrapOr(false);
+                    input.button = inp["button"].asInt().unwrapOr(1);
+                    normalizeButton(input.button);
+                    replay.inputs.push_back(input);
+                }
             }
         }
 
