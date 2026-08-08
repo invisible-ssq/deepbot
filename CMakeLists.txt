@@ -44,5 +44,5 @@ endif()
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -DNDEBUG")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra")
 
-# Use geode_package instead of create_geode_file
-geode_package(${PROJECT_NAME})
+# Create geode mod package
+setup_geode_mod(${PROJECT_NAME})
