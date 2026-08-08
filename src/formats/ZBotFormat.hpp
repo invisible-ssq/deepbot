@@ -1,7 +1,7 @@
 #pragma once
 #include <vector>
-#include <cstdint>
 #include <string>
+#include <cstring>
 #include "../utils/BinaryReader.hpp"
 #include "../utils/BinaryWriter.hpp"
 
@@ -32,7 +32,7 @@ public:
         writer.writeBytes(reinterpret_cast<const uint8_t*>(MAGIC), 3);
         writer.writeU16(VERSION);
         writer.writeF64(replay.fps);
-        writer.writeU32(replay.inputs.size());
+        writer.writeU32(static_cast<uint32_t>(replay.inputs.size()));
         for (const auto& input : replay.inputs) {
             writer.writeU32(input.frame);
             writer.writeU8(input.down ? 1 : 0);
@@ -59,7 +59,7 @@ public:
             input.down = reader.readU8() != 0;
             input.player2 = reader.readU8() != 0;
             input.button = reader.readU8();
-            if (input.button == 0) input.button = 1;
+            DeepParser::normalizeButton(input.button);
             replay.inputs.push_back(input);
         }
         return replay;
