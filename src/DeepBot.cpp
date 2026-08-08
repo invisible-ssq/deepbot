@@ -7,10 +7,16 @@ using namespace geode::prelude;
 
 namespace deepbot {
 
+static double getDefaultTPS() {
+    return static_cast<double>(Mod::get()->getSettingValue<int64_t>("default-tps"));
+}
+
 void DeepBot::startRecording() {
     auto* playLayer = PlayLayer::get();
     if (!playLayer) return;
-    m_recorder.startRecording(240.0, playLayer->m_gameState.m_unkRandSeed);
+
+    double tps = getDefaultTPS();
+    m_recorder.startRecording(tps, playLayer->m_gameState.m_unkRandSeed);
     m_currentMacro.clear();
 }
 
@@ -22,7 +28,7 @@ void DeepBot::stopRecording() {
 void DeepBot::startPlayback() {
     if (m_currentMacro.empty()) return;
     m_player.loadMacro(m_currentMacro);
-    m_player.startPlayback(240.0);
+    m_player.startPlayback(getDefaultTPS());
 }
 
 void DeepBot::stopPlayback() {
@@ -34,7 +40,8 @@ bool DeepBot::saveToFile(const std::string& path, const std::string& format) {
         auto unified = toUnified();
         auto data = DeepParser::serialize(unified, format);
         std::ofstream file(path, std::ios::binary);
-        file.write(reinterpret_cast<const char*>(data.data()), data.size());
+        if (!file) return false;
+        file.write(reinterpret_cast<const char*>(data.data()), static_cast<std::streamsize>(data.size()));
         return true;
     } catch (const std::exception& e) {
         log::error("deepbot save failed: {}", e.what());
@@ -45,8 +52,12 @@ bool DeepBot::saveToFile(const std::string& path, const std::string& format) {
 bool DeepBot::loadFromFile(const std::string& path, const std::string& format) {
     std::ifstream file(path, std::ios::binary);
     if (!file) return false;
-    std::vector<uint8_t> data((std::istreambuf_iterator<char>(file)),
-                               std::istreambuf_iterator<char>());
+
+    std::vector<uint8_t> data(
+        (std::istreambuf_iterator<char>(file)),
+        std::istreambuf_iterator<char>()
+    );
+
     try {
         auto unified = DeepParser::parseFormat(format, data);
         fromUnified(unified);
@@ -70,7 +81,7 @@ double DeepBot::getDuration() const {
 
 UnifiedReplay DeepBot::toUnified() const {
     UnifiedReplay replay;
-    replay.tps = 240.0;
+    replay.tps = getDefaultTPS();
     replay.duration = getDuration();
     for (const auto& frame : m_currentMacro) {
         UnifiedInput input;
@@ -89,6 +100,7 @@ UnifiedReplay DeepBot::toUnified() const {
 
 void DeepBot::fromUnified(const UnifiedReplay& replay) {
     m_currentMacro.clear();
+    m_currentMacro.reserve(replay.inputs.size());
     for (const auto& input : replay.inputs) {
         TPSIndependentFrame frame;
         frame.absoluteTime = input.absoluteTime;
