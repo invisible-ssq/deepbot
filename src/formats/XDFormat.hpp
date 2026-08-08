@@ -1,7 +1,7 @@
 #pragma once
 #include <vector>
-#include <cstdint>
 #include <string>
+#include <cstring>
 #include <zlib.h>
 #include "../utils/BinaryReader.hpp"
 #include "../utils/BinaryWriter.hpp"
@@ -39,19 +39,23 @@ public:
         writer.writeStringVar(replay.levelName);
 
         BinaryWriter inputsData;
-        inputsData.writeU32(replay.inputs.size());
+        inputsData.writeU32(static_cast<uint32_t>(replay.inputs.size()));
         for (const auto& input : replay.inputs) {
+            // Check for frame overflow (29 bits max since player2 uses bit 31)
+            if (input.frame > 0x1FFFFFFF) {
+                throw std::runtime_error("XD format: frame number too large (max 536,870,911)");
+            }
             uint32_t packed = (input.frame << 3)
-                            | ((input.button & 3) << 1)
-                            | (input.player2 ? 0x80000000 : 0)
-                            | (input.down ? 1 : 0);
+                | ((input.button & 3) << 1)
+                | (input.player2 ? 0x80000000 : 0)
+                | (input.down ? 1 : 0);
             inputsData.writeU32(packed);
         }
 
         uLongf compressedSize = compressBound(inputsData.size());
         std::vector<uint8_t> compressed(compressedSize);
         compress2(compressed.data(), &compressedSize,
-                  inputsData.data().data(), inputsData.size(), Z_BEST_COMPRESSION);
+            inputsData.data().data(), inputsData.size(), Z_BEST_COMPRESSION);
         compressed.resize(compressedSize);
 
         writer.writeVarU64(compressed.size());
@@ -78,11 +82,17 @@ public:
         uLongf uncompressedSize = compressedSize * 10;
         std::vector<uint8_t> uncompressed;
         int result;
+        int attempts = 0;
+        const int MAX_ATTEMPTS = 10;
         do {
+            if (attempts >= MAX_ATTEMPTS) {
+                throw std::runtime_error("XD decompression failed: too many attempts");
+            }
+            attempts++;
             uncompressedSize *= 2;
             uncompressed.resize(uncompressedSize);
             result = uncompress(uncompressed.data(), &uncompressedSize,
-                               compressed.data(), compressed.size());
+                compressed.data(), compressed.size());
         } while (result == Z_BUF_ERROR);
 
         if (result != Z_OK) {
@@ -97,11 +107,11 @@ public:
         for (uint32_t i = 0; i < count; i++) {
             uint32_t packed = inputsReader.readU32();
             Input input;
-            input.frame = packed >> 3;
+            input.frame = (packed >> 3) & 0x1FFFFFFF; // Mask to 29 bits
             input.player2 = (packed & 0x80000000) != 0;
             input.down = (packed & 1) != 0;
             input.button = (packed >> 1) & 3;
-            if (input.button == 0) input.button = 1;
+            DeepParser::normalizeButton(input.button);
             replay.inputs.push_back(input);
         }
 
