@@ -21,7 +21,7 @@ jobs:
       - name: Build Geode Mod
         uses: geode-sdk/build-geode-mod@main
         with:
-          sdk: nightly
+          sdk: v5.8.2
           build-config: Release
           target: Android64
           combine: false
