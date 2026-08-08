@@ -1,7 +1,7 @@
 #pragma once
 #include <vector>
+#include <cstddef>
 #include <cstdint>
-#include <Geode/Geode.hpp>
 #include "../utils/TPSFix.hpp"
 
 namespace deepbot {
@@ -11,12 +11,11 @@ private:
     bool m_playing = false;
     std::vector<TPSIndependentFrame> m_frames;
     size_t m_currentIndex = 0;
-    double m_startTime = 0.0;
-    double m_currentTPS = 240.0;
+    double m_lastProcessedTime = -1.0;
 
 public:
     void loadMacro(const std::vector<TPSIndependentFrame>& frames);
-    void startPlayback(double tps);
+    void startPlayback();
     void stopPlayback();
     bool isPlaying() const { return m_playing; }
     void update(double currentTime);
