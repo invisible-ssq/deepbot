@@ -1,6 +1,6 @@
 #include <Geode/Geode.hpp>
+#include <Geode/modify/PlayerObject.hpp>
 #include <Geode/modify/PlayLayer.hpp>
-#include <Geode/modify/GJBaseGameLayer.hpp>
 #include "DeepBot.hpp"
 #include "ui/DeepBotUI.hpp"
 #include "formats/DeepParser.hpp"
@@ -22,18 +22,37 @@ $on_mod(Loaded) {
     log::info("deepbot {}.{}.{} by goodxdeveloper", version.getMajor(), version.getMinor(), version.getPatch());
 }
 
-// ===== Хук на инпуты в уровне =====
-class $modify(DeepBotPlayLayer, PlayLayer) {
-    void handleButton(bool down, int button, bool player1) {
-        PlayLayer::handleButton(down, button, player1);
+// ===== Хук на инпуты через PlayerObject =====
+class $modify(DeepBotPlayerObject, PlayerObject) {
+    void pushButton(PlayerButton button) {
+        PlayerObject::pushButton(button);
+        
+        auto* playLayer = PlayLayer::get();
+        if (!playLayer) return;
         
         auto& bot = deepbot::DeepBot::instance();
         if (bot.isRecording()) {
-            bool player2 = !player1;
-            bot.getRecorder().recordInput(down, player2, button);
+            bool player2 = (this == playLayer->m_player2);
+            bot.getRecorder().recordInput(true, player2, static_cast<int>(button));
         }
     }
     
+    void releaseButton(PlayerButton button) {
+        PlayerObject::releaseButton(button);
+        
+        auto* playLayer = PlayLayer::get();
+        if (!playLayer) return;
+        
+        auto& bot = deepbot::DeepBot::instance();
+        if (bot.isRecording()) {
+            bool player2 = (this == playLayer->m_player2);
+            bot.getRecorder().recordInput(false, player2, static_cast<int>(button));
+        }
+    }
+};
+
+// ===== Хук на позицию =====
+class $modify(DeepBotPlayLayer, PlayLayer) {
     void postUpdate(float dt) {
         PlayLayer::postUpdate(dt);
         
