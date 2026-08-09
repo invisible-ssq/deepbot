@@ -30,7 +30,6 @@ void DeepBot::startRecording() {
 
 void DeepBot::stopRecording() {
     m_recorder.stopRecording();
-    // Конвертируем RecordedFrame → TPSIndependentFrame
     m_currentMacro.clear();
     for (const auto& frame : m_recorder.getFrames()) {
         TPSIndependentFrame f;
